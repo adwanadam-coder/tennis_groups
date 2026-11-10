@@ -1111,7 +1111,7 @@ private fun RankingTable(ranking: List<PlayerRanking>, modifier: Modifier = Modi
             Text("Joués", Modifier.width(52.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             Text("V", Modifier.width(34.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             Text("Repos", Modifier.width(48.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-            Text("Pts +", Modifier.width(52.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("Pts gagnés", Modifier.width(70.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             Text("Diff.", Modifier.width(52.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             Text("%", Modifier.width(48.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
@@ -1123,7 +1123,7 @@ private fun RankingTable(ranking: List<PlayerRanking>, modifier: Modifier = Modi
                 Text(item.matchesPlayed.toString(), Modifier.width(52.dp), style = MaterialTheme.typography.bodySmall)
                 Text(item.wins.toString(), Modifier.width(34.dp), style = MaterialTheme.typography.bodySmall)
                 Text(item.rests.toString(), Modifier.width(48.dp), style = MaterialTheme.typography.bodySmall)
-                Text(item.pointsWon.roundToInt().toString(), Modifier.width(52.dp), style = MaterialTheme.typography.bodySmall)
+                Text(item.pointsWon.roundToInt().toString(), Modifier.width(70.dp), style = MaterialTheme.typography.bodySmall)
                 Text((if (item.pointDifference > 0) "+" else "") + item.pointDifference.roundToInt(), Modifier.width(52.dp), style = MaterialTheme.typography.bodySmall)
                 Text("${(item.winRate * 100).roundToInt()} %", Modifier.width(48.dp), style = MaterialTheme.typography.bodySmall)
             }
@@ -1152,7 +1152,7 @@ private fun HistoryPage(
                 Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Classement individuel final", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        Text("Départage : % de victoires, victoires, différence de points, points gagnés. Les égalités parfaites partagent le même rang. Faites défiler le tableau horizontalement pour voir toutes les colonnes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text("Départage : % de victoires, victoires, différence de points, points gagnés, puis matchs joués. Une égalité parfaite conserve le même rang. Faites défiler le tableau horizontalement pour voir toutes les colonnes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
                         RankingTable(ranking, Modifier.fillMaxWidth())
                         val currentArchive = archives.maxByOrNull { it.endedAt }
                         if (currentArchive != null) {
