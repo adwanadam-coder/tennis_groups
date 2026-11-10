@@ -23,7 +23,7 @@ class RotationEngine {
         repeat(courtCount) { courtIndex ->
             if (available.size < playersPerMatch) return@repeat
             if (singles) {
-                val candidate = chooseSinglesPair(available, previousGroups)
+                val candidate = chooseSinglesPair(available, previousGroups, levelsEnabled)
                 if (candidate == null) {
                     exhausted = true
                     return@repeat
@@ -48,7 +48,7 @@ class RotationEngine {
         return RotationResult(matches, available, exhausted)
     }
 
-    private fun chooseSinglesPair(pool: List<Player>, history: Set<String>): Pair<List<Player>, Boolean>? {
+    private fun chooseSinglesPair(pool: List<Player>, history: Set<String>, levelsEnabled: Boolean): Pair<List<Player>, Boolean>? {
         var best: List<Player>? = null
         var bestScore = Double.POSITIVE_INFINITY
         var repeatedBest: List<Player>? = null
@@ -56,7 +56,8 @@ class RotationEngine {
         for (a in 0 until pool.size - 1) for (b in a + 1 until pool.size) {
             val pair = listOf(pool[a], pool[b])
             val key = pair.map { it.id }.sorted().joinToString("|")
-            val score = pair.sumOf { it.matchesPlayed } * 100.0
+            val levelGap = if (levelsEnabled && pair.all { it.level != null }) abs(pair[0].level!! - pair[1].level!!).toDouble() else 0.0
+            val score = pair.sumOf { it.matchesPlayed } * 100.0 + levelGap * 20.0
             if (key !in history && score < bestScore) {
                 best = pair
                 bestScore = score
