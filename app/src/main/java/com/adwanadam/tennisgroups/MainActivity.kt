@@ -470,13 +470,13 @@ private fun TennisGroupsApp() {
             }
             if (remaining == 0 && !timerEndHandled) {
                 timerEndHandled = true
-                val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75)
-                repeat(3) { beepIndex ->
-                    tone.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
-                    if (beepIndex < 2) delay(300)
+                val tone = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+                repeat(4) { beepIndex ->
+                    tone.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
+                    if (beepIndex < 3) delay(260)
                 }
                 vibrateThreeTimes(context)
-                delay(180)
+                delay(220)
                 tone.release()
                 running = false
                 if (scoreEntryEnabled && matches.isNotEmpty() && !scoreDialogShown) {
@@ -1221,8 +1221,15 @@ private fun HistoryTeam(players: List<Player>, levelsEnabled: Boolean, modifier:
 private fun AboutPage(modifier: Modifier) {
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("À propos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Tennis tournament aide les clubs à organiser des rencontres amicales en simple et en double.")
-        Text("L'application renouvelle les adversaires en simple et les groupes en double, fait varier les partenaires et peut équilibrer les équipes grâce aux trois niveaux individuels facultatifs.")
+        Text("Organisez facilement vos tournois de tennis entre amis !", fontWeight = FontWeight.Bold)
+        Text("Tennis Tournament est une application conçue pour organiser simplement des tournois de tennis, en simple ou en double, et faire jouer tous les participants dans les meilleures conditions.")
+        Text("Un tournoi où tout le monde joue, tout le temps ! Pas d'élimination, pas de phases finales : les joueurs participent aux rotations et enchaînent les matchs tout au long du tournoi. L'objectif est simple : permettre à chacun de profiter pleinement du jeu, du premier au dernier tour.", fontWeight = FontWeight.SemiBold)
+        Text("Un nombre de joueurs qui ne correspond pas exactement au nombre de places disponibles sur les terrains ? Pas de problème ! Tennis Tournament organise les rotations pour optimiser les temps d'attente et répartir au mieux les périodes de jeu et de repos entre les participants.")
+        Text("Les fonctionnalités", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("• Simple ou double : choisissez le format de jeu adapté à votre tournoi.\n• Gestion des joueurs : ajoutez les participants et attribuez-leur, si vous le souhaitez, un niveau individuel (débutant, intermédiaire ou avancé) pour équilibrer les rencontres.\n• Organisation automatique des matchs : générez les rotations et les équipes en tenant compte des joueurs et, si l'option est activée, de leur niveau.\n• Gestion des terrains : définissez le nombre de terrains disponibles et optimisez leur utilisation.\n• Chronomètre intégré : définissez la durée des tours et profitez d'une alerte sonore et de vibrations en fin de partie.\n• Suivi des scores (optionnel) : enregistrez les résultats des matchs si vous souhaitez suivre les scores.\n• Classement final : retrouvez les performances individuelles selon les victoires et la différence de points, lorsque les scores sont renseignés.\n• Historique des matchs : consultez les rencontres et les résultats de chaque tour.\n• Archives des tournois : conservez les anciens tournois et retrouvez leurs classements et historiques.\n• Export et partage : créez un rapport complet du tournoi en PDF ou CSV et partagez-le facilement.")
+        Text("Une organisation simple et conviviale", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Configurez votre tournoi, lancez les matchs et laissez l'application organiser les rotations. À la fin, retrouvez le bilan complet et préparez votre prochain tournoi sans perdre les résultats précédents.")
+        Text("Tennis Tournament – Prenez plaisir à jouer, on s'occupe de l'organisation !", fontWeight = FontWeight.Bold)
         Text("Version 1.0.0", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
