@@ -393,9 +393,9 @@ private fun shareTournamentReport(context: Context, archive: TournamentArchive, 
             round.matches.forEach { match ->
                 val score = round.scores[match.court]
                 val scoreText = if (score == null) translateUiText("Score non renseigné", language) else "${score.first.ifBlank { "–" }} - ${score.second.ifBlank { "–" }}"
-                lines.add("Terrain ${match.court} : ${match.teamA.joinToString(" + ") { it.name }} / ${match.teamB.joinToString(" + ") { it.name }} ($scoreText)" to 0)
+                lines.add(translateUiText("Terrain ${match.court} : ${match.teamA.joinToString(" + ") { it.name }} / ${match.teamB.joinToString(" + ") { it.name }} ($scoreText)", language) to 0)
             }
-            if (round.waiting.isNotEmpty()) lines.add("En attente : ${round.waiting.joinToString(", ") { it.name }}" to 0)
+            if (round.waiting.isNotEmpty()) lines.add(translateUiText("En attente : ${round.waiting.joinToString(", ") { it.name }}", language) to 0)
         }
         var pageNumber = 1
         var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
@@ -1276,7 +1276,7 @@ private fun HistoryPage(
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Tournoi du ${formatTournamentDate(archive.endedAt, language)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text("Début : ${formatTournamentDate(archive.startedAt, language)}", style = MaterialTheme.typography.bodySmall)
-                        Text("Fin : ${formatTournamentDate(archive.endedAt)} • ${archive.history.size} tour(s) • ${archive.players.size} joueur(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Fin : ${formatTournamentDate(archive.endedAt, language)} • ${archive.history.size} tour(s) • ${archive.players.size} joueur(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Classement : " + archive.ranking.take(3).joinToString(" • ") { it.player.name }, style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = { expanded = !expanded }) {
                             Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
