@@ -55,7 +55,6 @@ private fun TennisGroupsApp() {
     val history = remember { mutableStateListOf<RoundHistory>() }
     var entry by remember { mutableStateOf("") }
     var levelEnabled by remember { mutableStateOf(false) }
-    var newLevel by remember { mutableIntStateOf(2) }
     var courts by remember { mutableIntStateOf(2) }
     var duration by remember { mutableIntStateOf(20) }
     var language by remember { mutableStateOf("Français") }
@@ -182,7 +181,7 @@ private fun TennisGroupsApp() {
                 "history" -> HistoryPage(history.toList(), levelEnabled, Modifier.padding(padding))
                 "about" -> AboutPage(Modifier.padding(padding))
                 else -> PlayersPage(
-                    players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it }, newLevel, { newLevel = it },
+                    players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it },
                     courts, { courts = it.coerceIn(1, 20) }, duration, { duration = it.coerceIn(5, 180); remaining = duration * 60 },
                     { val n = entry.trim(); if (n.isNotEmpty() && players.none { it.name.equals(n, true) }) { players.add(Player(Random.nextLong().toString(), n, if (levelEnabled) 2 else null)); entry = "" } },
                     { editing = it }, { players.remove(it) }, { generateRound() }, Modifier.padding(padding)
@@ -290,8 +289,23 @@ private fun PlayersPage(
                         Switch(levelsEnabled, onLevels)
                     }
                     if (levelsEnabled) {
-                        Text("Niveau du prochain joueur ajouté", style = MaterialTheme.typography.labelLarge)
-                        LevelSelector(newLevel, onNewLevel)
+                        if (players.isEmpty()) {
+                            Text("Les nouveaux joueurs auront le niveau Intermédiaire par défaut.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            players.forEach { player ->
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(player.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    LevelSelector(player.level ?: 2) { selected ->
+                                        val index = players.indexOfFirst { it.id == player.id }
+                                        if (index >= 0) players[index] = players[index].copy(level = selected)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
