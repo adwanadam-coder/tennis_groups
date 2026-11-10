@@ -2,25 +2,74 @@ package com.adwanadam.tennisgroups.domain
 
 import kotlin.math.abs
 
-/** Continuous rotation engine. Previously played groups of four are avoided whenever possible. */
+/** Rotation engine for doubles (groups of four) and singles (pairs of two). */
 class RotationEngine {
-    fun generate(players: List<Player>, courtCount: Int, levelsEnabled: Boolean, previousGroups: Set<String>, previousPartners: Set<String>): RotationResult {
+    fun generate(
+        players: List<Player>,
+        courtCount: Int,
+        levelsEnabled: Boolean,
+        previousGroups: Set<String>,
+        previousPartners: Set<String>,
+        singles: Boolean = false
+    ): RotationResult {
         require(courtCount > 0)
         require(players.map { it.id }.distinct().size == players.size)
+
         val available = players.sortedWith(compareBy<Player> { it.matchesPlayed }.thenBy { it.id }).toMutableList()
         val matches = mutableListOf<DoublesMatch>()
         var exhausted = false
+        val playersPerMatch = if (singles) 2 else 4
+
         repeat(courtCount) { courtIndex ->
-            if (available.size < 4) return@repeat
-            val candidate = chooseGroup(available, previousGroups, levelsEnabled)
-            if (candidate == null) { exhausted = true; return@repeat }
-            val (group, repeated) = candidate
-            if (repeated) exhausted = true
-            val teams = splitTeams(group, levelsEnabled, previousPartners)
-            matches += DoublesMatch(courtIndex + 1, group, teams.first, teams.second, repeated)
-            available.removeAll(group.toSet())
+            if (available.size < playersPerMatch) return@repeat
+            if (singles) {
+                val candidate = chooseSinglesPair(available, previousGroups)
+                if (candidate == null) {
+                    exhausted = true
+                    return@repeat
+                }
+                val (pair, repeated) = candidate
+                if (repeated) exhausted = true
+                matches += DoublesMatch(courtIndex + 1, pair, listOf(pair[0]), listOf(pair[1]), repeated)
+                available.removeAll(pair.toSet())
+            } else {
+                val candidate = chooseGroup(available, previousGroups, levelsEnabled)
+                if (candidate == null) {
+                    exhausted = true
+                    return@repeat
+                }
+                val (group, repeated) = candidate
+                if (repeated) exhausted = true
+                val teams = splitTeams(group, levelsEnabled, previousPartners)
+                matches += DoublesMatch(courtIndex + 1, group, teams.first, teams.second, repeated)
+                available.removeAll(group.toSet())
+            }
         }
         return RotationResult(matches, available, exhausted)
+    }
+
+    private fun chooseSinglesPair(pool: List<Player>, history: Set<String>): Pair<List<Player>, Boolean>? {
+        var best: List<Player>? = null
+        var bestScore = Double.POSITIVE_INFINITY
+        var repeatedBest: List<Player>? = null
+        var repeatedScore = Double.POSITIVE_INFINITY
+        for (a in 0 until pool.size - 1) for (b in a + 1 until pool.size) {
+            val pair = listOf(pool[a], pool[b])
+            val key = pair.map { it.id }.sorted().joinToString("|")
+            val score = pair.sumOf { it.matchesPlayed } * 100.0
+            if (key !in history && score < bestScore) {
+                best = pair
+                bestScore = score
+            } else if (key in history && score < repeatedScore) {
+                repeatedBest = pair
+                repeatedScore = score
+            }
+        }
+        return when {
+            best != null -> best to false
+            repeatedBest != null -> repeatedBest to true
+            else -> null
+        }
     }
 
     private fun chooseGroup(pool: List<Player>, history: Set<String>, levelsEnabled: Boolean): Pair<List<Player>, Boolean>? {
@@ -33,10 +82,19 @@ class RotationEngine {
                 val group = listOf(pool[a], pool[b], pool[c], pool[d])
                 val key = group.map { it.id }.sorted().joinToString("|")
                 val score = group.sumOf { it.matchesPlayed } * 100.0 + if (levelsEnabled) levelSpread(group) * 2.0 else 0.0
-                if (key !in history && score < bestScore) { best = group; bestScore = score }
-                else if (key in history && score < repeatedScore) { repeatedBest = group; repeatedScore = score }
+                if (key !in history && score < bestScore) {
+                    best = group
+                    bestScore = score
+                } else if (key in history && score < repeatedScore) {
+                    repeatedBest = group
+                    repeatedScore = score
+                }
             }
-        return when { best != null -> best to false; repeatedBest != null -> repeatedBest to true; else -> null }
+        return when {
+            best != null -> best to false
+            repeatedBest != null -> repeatedBest to true
+            else -> null
+        }
     }
 
     private fun splitTeams(group: List<Player>, levelsEnabled: Boolean, previousPartners: Set<String>): Pair<List<Player>, List<Player>> {
@@ -56,7 +114,7 @@ class RotationEngine {
     }
 
     private fun levelSpread(group: List<Player>): Double {
-        val levels = group.mapNotNull { it.level }
-        return if (levels.size == 4) (levels.maxOrNull()!! - levels.minOrNull()!!).toDouble() else 0.0
+        val values = group.mapNotNull { it.level }
+        return if (values.size == 4) (values.maxOrNull()!! - values.minOrNull()!!).toDouble() else 0.0
     }
 }
