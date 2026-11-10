@@ -61,6 +61,7 @@ private fun TennisGroupsApp() {
     var remaining by remember { mutableIntStateOf(1200) }
     var running by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Player?>(null) }
+    var tournamentFormat by remember { mutableStateOf("Doubles") }
 
     fun generateRound() {
         val result = RotationEngine().generate(players.toList(), courts, levelEnabled, previousGroups.toSet(), previousPartners.toSet())
@@ -149,7 +150,7 @@ private fun TennisGroupsApp() {
                     { duration = it.coerceIn(5, 180); remaining = duration * 60 }, Modifier.padding(padding))
                 "about" -> AboutPage(Modifier.padding(padding))
                 else -> PlayersPage(
-                    players, entry, { entry = it }, levelEnabled, { levelEnabled = it }, newLevel, { newLevel = it },
+                    players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it }, newLevel, { newLevel = it },
                     courts, { courts = it.coerceIn(1, 20) }, duration, { duration = it.coerceIn(5, 180); remaining = duration * 60 },
                     { val n = entry.trim(); if (n.isNotEmpty() && players.none { it.name.equals(n, true) }) { players.add(Player(Random.nextLong().toString(), n, if (levelEnabled) newLevel else null)); entry = "" } },
                     { editing = it }, { players.remove(it) }, { generateRound() }, Modifier.padding(padding)
@@ -169,15 +170,25 @@ private fun TennisGroupsApp() {
 @Composable
 private fun PlayersPage(
     players: List<Player>, entry: String, onEntry: (String) -> Unit,
+    tournamentFormat: String, onTournamentFormat: (String) -> Unit,
     levelsEnabled: Boolean, onLevels: (Boolean) -> Unit, newLevel: Int, onNewLevel: (Int) -> Unit,
     courts: Int, onCourts: (Int) -> Unit, duration: Int, onDuration: (Int) -> Unit,
     onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onGenerate: () -> Unit, modifier: Modifier
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Format du tournoi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FilterChip(selected = tournamentFormat == "Doubles", onClick = { onTournamentFormat("Doubles") }, label = { Text("Doubles") }, leadingIcon = { Icon(Icons.Default.Groups, contentDescription = null) }, modifier = Modifier.weight(1f))
+                    FilterChip(selected = tournamentFormat == "Simples", onClick = { onTournamentFormat("Simples") }, label = { Text("Simples") }, leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+        item {
             Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("TOURNOI DE DOUBLES", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge)
+                    Text("TOURNOI " + tournamentFormat.uppercase(), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge)
                     Text("Organisez vos rotations simplement.", color = MaterialTheme.colorScheme.onPrimary)
                     Text(players.size.toString() + " participants", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 }
@@ -357,7 +368,7 @@ private fun MatchesPage(
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Text(if (round == 0) "Matchs" else "Tour " + round, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(if (round == 0) "Les rencontres apparaîtront ici." else matches.size.toString() + " terrain(s) en jeu", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (round == 0) "Les rencontres apparaîtront ici." else matches.size.toString() + (if (matches.size == 1) " terrain en jeu" else " terrains en jeu"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (round == 0) {
             item {
@@ -416,7 +427,7 @@ private fun MatchesPage(
                         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.HourglassEmpty, null)
                             Spacer(Modifier.width(10.dp))
-                            Text(waiting.size.toString() + " joueur(s) en attente")
+                            Text(waiting.size.toString() + (if (waiting.size == 1) " joueur en attente : " else " joueurs en attente : ") + waiting.joinToString(", ") { it.name })
                         }
                     }
                 }
