@@ -31,6 +31,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.Text as MaterialText
+
+private val LocalAppLanguage = staticCompositionLocalOf { "Français" }
+
+@Composable
+private fun Text(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    fontWeight: FontWeight? = null,
+    maxLines: Int = Int.MAX_VALUE,
+    softWrap: Boolean = true,
+    style: androidx.compose.ui.text.TextStyle = LocalTextStyle.current
+) {
+    MaterialText(text = translateUiText(text, LocalAppLanguage.current), modifier = modifier, color = color, fontSize = fontSize, fontWeight = fontWeight, maxLines = maxLines, softWrap = softWrap, style = style)
+}
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -407,6 +425,7 @@ private fun TennisGroupsApp() {
     val previousPartners = remember { mutableStateListOf<String>() }
     val history = remember { mutableStateListOf<RoundHistory>() }
     var entry by remember { mutableStateOf("") }
+    val context = androidx.compose.ui.platform.LocalContext.current
     var levelEnabled by remember { mutableStateOf(false) }
     var courts by remember { mutableIntStateOf(2) }
     var duration by remember { mutableIntStateOf(20) }
@@ -414,11 +433,10 @@ private fun TennisGroupsApp() {
     var scoreDialogOpen by remember { mutableStateOf(false) }
     var scoreDialogShown by remember { mutableStateOf(false) }
     val scoreInputs = remember { mutableStateMapOf<Int, Pair<String, String>>() }
-    var language by remember { mutableStateOf("Français") }
+    var language by remember { mutableStateOf(context.getSharedPreferences("app_settings", Context.MODE_PRIVATE).getString("language", "Français") ?: "Français") }
     var menuOpen by remember { mutableStateOf(false) }
     var languageOpen by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
-    val context = androidx.compose.ui.platform.LocalContext.current
     var page by remember { mutableStateOf("players") }
     var round by remember { mutableIntStateOf(0) }
     var matches by remember { mutableStateOf(emptyList<DoublesMatch>()) }
@@ -462,6 +480,7 @@ private fun TennisGroupsApp() {
         page = "matches"
     }
 
+    CompositionLocalProvider(LocalAppLanguage provides language) {
     MaterialTheme(colorScheme = lightColorScheme(
         primary = androidx.compose.ui.graphics.Color(0xFF176447),
         onPrimary = androidx.compose.ui.graphics.Color.White,
@@ -480,7 +499,7 @@ private fun TennisGroupsApp() {
                         items(languages) { option ->
                             val selected = language == option.name
                             Surface(
-                                onClick = { language = option.name; languageOpen = false },
+                                onClick = { language = option.name; context.getSharedPreferences("app_settings", Context.MODE_PRIVATE).edit().putString("language", option.name).apply(); languageOpen = false },
                                 shape = RoundedCornerShape(12.dp),
                                 color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
                             ) {
@@ -698,6 +717,7 @@ private fun TennisGroupsApp() {
                 editing = null
             }
         }
+    }
     }
 }
 
