@@ -17,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.Color
 import com.adwanadam.tennisgroups.domain.DoublesMatch
 import com.adwanadam.tennisgroups.domain.Player
 import com.adwanadam.tennisgroups.domain.RotationEngine
@@ -102,8 +105,7 @@ private fun TennisGroupsApp() {
                 TopAppBar(
                     title = {
                         Column {
-                            Text("Tennis Groups", fontWeight = FontWeight.Bold)
-                            Text("Tournoi de doubles", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Tennis tournament", fontWeight = FontWeight.Bold)
                         }
                     },
                     navigationIcon = {
@@ -204,8 +206,20 @@ private fun PlayersPage(
                             Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(10.dp))
                         }
                         Column(Modifier.weight(1f).padding(horizontal = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(player.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            if (levelsEnabled) Text(levels[player.level] ?: "Niveau à définir", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(player.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                if (levelsEnabled) {
+                                    val levelColor = when (player.level) {
+                                        1 -> Color(0xFF287A50)
+                                        2 -> Color(0xFFB36A13)
+                                        3 -> Color(0xFF3567A8)
+                                        else -> MaterialTheme.colorScheme.outline
+                                    }
+                                    Surface(shape = RoundedCornerShape(50), color = levelColor.copy(alpha = 0.13f)) {
+                                        Text(levels[player.level] ?: "À définir", modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = levelColor, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
                         }
                         IconButton(onClick = { onEdit(player) }) { Icon(Icons.Default.Edit, contentDescription = "Modifier " + player.name) }
                         IconButton(onClick = { onRemove(player) }) { Icon(Icons.Default.Close, contentDescription = "Supprimer " + player.name) }
@@ -244,9 +258,10 @@ private fun PlayersPage(
             Card(shape = RoundedCornerShape(20.dp)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Organisation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    SettingStepper("Terrains disponibles", courts, "terrain(s)", 1, 20, onCourts)
-                    HorizontalDivider()
-                    SettingStepper("Durée du match", duration, "min", 5, 180, onDuration)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        OrganizationInput("Terrains disponibles", courts, "terrains", { Icon(Icons.Default.SportsTennis, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
+                        OrganizationInput("Durée du match", duration, "min", { Icon(Icons.Default.AccessTime, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onDuration(it.coerceIn(5, 180)) }
+                    }
                 }
             }
         }
@@ -266,6 +281,39 @@ private fun LevelSelector(selected: Int, onSelected: (Int) -> Unit) {
         levels.forEach { (value, label) ->
             FilterChip(selected == value, { onSelected(value) }, label = { Text(label, maxLines = 1) }, modifier = Modifier.weight(1f))
         }
+    }
+}
+
+
+@Composable
+private fun OrganizationInput(
+    label: String,
+    value: Int,
+    unit: String,
+    icon: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    onValueChange: (Int) -> Unit
+) {
+    var textValue by remember(label, value) { mutableStateOf(value.toString()) }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            icon()
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 2)
+        }
+        OutlinedTextField(
+            value = textValue,
+            onValueChange = { raw ->
+                val digits = raw.filter(Char::isDigit).take(3)
+                textValue = digits
+                digits.toIntOrNull()?.let(onValueChange)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            suffix = { Text(unit, style = MaterialTheme.typography.labelSmall) }
+        )
     }
 }
 
@@ -415,9 +463,10 @@ private fun SettingsPage(levelsEnabled: Boolean, onLevels: (Boolean) -> Unit, co
         Card(shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Organisation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                SettingStepper("Terrains disponibles", courts, "terrain(s)", 1, 20, onCourts)
-                HorizontalDivider()
-                SettingStepper("Durée du match", duration, "min", 5, 180, onDuration)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    OrganizationInput("Terrains disponibles", courts, "terrains", { Icon(Icons.Default.SportsTennis, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
+                    OrganizationInput("Durée du match", duration, "min", { Icon(Icons.Default.AccessTime, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onDuration(it.coerceIn(5, 180)) }
+                }
             }
         }
     }
