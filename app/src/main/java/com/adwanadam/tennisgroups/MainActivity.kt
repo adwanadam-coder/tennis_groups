@@ -21,6 +21,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -1219,7 +1221,10 @@ private fun HistoryTeam(players: List<Player>, levelsEnabled: Boolean, modifier:
 
 @Composable
 private fun AboutPage(modifier: Modifier) {
-    Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text("À propos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("Organisez facilement vos tournois de tennis entre amis !", fontWeight = FontWeight.Bold)
         Text("Tennis Tournament est une application conçue pour organiser simplement des tournois de tennis, en simple ou en double, et faire jouer tous les participants dans les meilleures conditions.")
