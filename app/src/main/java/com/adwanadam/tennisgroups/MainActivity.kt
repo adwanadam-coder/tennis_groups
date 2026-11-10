@@ -22,6 +22,7 @@ import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.lazy.LazyColumn
@@ -87,37 +88,71 @@ private fun vibrateThreeTimes(context: Context) {
     }
 }
 
-private data class PlayerRanking(val player: Player, val wins: Int, val pointDifference: Double, val matchesPlayed: Int)
+private data class PlayerRanking(
+    val player: Player,
+    val wins: Int,
+    val pointDifference: Double,
+    val pointsWon: Double,
+    val matchesPlayed: Int,
+    val rests: Int,
+    val winRate: Double
+)
 
 private fun buildIndividualRanking(players: List<Player>, history: List<RoundHistory>): List<PlayerRanking> {
-    val stats = players.associate { it.id to doubleArrayOf(0.0, 0.0, 0.0) }.toMutableMap()
+    data class Stats(
+        var wins: Int = 0,
+        var pointsWon: Double = 0.0,
+        var pointsAgainst: Double = 0.0,
+        var matchesPlayed: Int = 0,
+        var rests: Int = 0
+    )
+    val stats = players.associate { it.id to Stats() }.toMutableMap()
     history.forEach { round ->
+        round.waiting.forEach { player -> stats.getOrPut(player.id) { Stats() }.rests++ }
         round.matches.forEach { match ->
             val a = round.scores[match.court]?.first?.trim()?.replace(',', '.')?.toDoubleOrNull()
             val b = round.scores[match.court]?.second?.trim()?.replace(',', '.')?.toDoubleOrNull()
-            (match.teamA + match.teamB).forEach { player ->
-                stats.getOrPut(player.id) { doubleArrayOf(0.0, 0.0, 0.0) }[2] += 1.0
-            }
+            match.players.forEach { player -> stats.getOrPut(player.id) { Stats() }.matchesPlayed++ }
             if (a != null && b != null) {
                 match.teamA.forEach { player ->
-                    val values = stats.getOrPut(player.id) { doubleArrayOf(0.0, 0.0, 0.0) }
-                    values[1] += a - b
-                    if (a > b) values[0] += 1.0
+                    val values = stats.getOrPut(player.id) { Stats() }
+                    values.pointsWon += a
+                    values.pointsAgainst += b
+                    if (a > b) values.wins++
                 }
                 match.teamB.forEach { player ->
-                    val values = stats.getOrPut(player.id) { doubleArrayOf(0.0, 0.0, 0.0) }
-                    values[1] += b - a
-                    if (b > a) values[0] += 1.0
+                    val values = stats.getOrPut(player.id) { Stats() }
+                    values.pointsWon += b
+                    values.pointsAgainst += a
+                    if (b > a) values.wins++
                 }
             }
         }
     }
     return players.map { player ->
-        val values = stats[player.id] ?: doubleArrayOf(0.0, 0.0, 0.0)
-        PlayerRanking(player, values[0].roundToInt(), values[1], values[2].roundToInt())
-    }.sortedWith(compareByDescending<PlayerRanking> { it.wins }
-        .thenByDescending { it.pointDifference }
-        .thenBy { it.player.name.lowercase() })
+        val values = stats[player.id] ?: Stats()
+        val difference = values.pointsWon - values.pointsAgainst
+        val winRate = if (values.matchesPlayed > 0) values.wins.toDouble() / values.matchesPlayed else 0.0
+        PlayerRanking(player, values.wins, difference, values.pointsWon, values.matchesPlayed, values.rests, winRate)
+    }.sortedWith(
+        compareByDescending<PlayerRanking> { it.winRate }
+            .thenByDescending { it.wins }
+            .thenByDescending { it.pointDifference }
+            .thenByDescending { it.pointsWon }
+            .thenByDescending { it.matchesPlayed }
+    )
+}
+
+private fun rankingPosition(ranking: List<PlayerRanking>, index: Int): Int {
+    if (index <= 0) return 1
+    val current = ranking[index]
+    val previous = ranking[index - 1]
+    val tied = current.winRate == previous.winRate &&
+        current.wins == previous.wins &&
+        current.pointDifference == previous.pointDifference &&
+        current.pointsWon == previous.pointsWon &&
+        current.matchesPlayed == previous.matchesPlayed
+    return if (tied) rankingPosition(ranking, index - 1) else index + 1
 }
 private fun formatTournamentDate(timestamp: Long): String =
     SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
@@ -131,9 +166,9 @@ private fun tournamentCsv(archive: TournamentArchive): String = buildString {
     appendLine("Fin;${csvCell(formatTournamentDate(archive.endedAt))}")
     appendLine()
     appendLine("CLASSEMENT FINAL")
-    appendLine("Rang;Joueur;Victoires;Différence de points;Matchs joués")
+    appendLine("Rang;Joueur;Matchs joués;Victoires;Repos;Points gagnés;Différence de points;Pourcentage de victoires")
     archive.ranking.forEachIndexed { index, item ->
-        appendLine("${index + 1};${csvCell(item.player.name)};${item.wins};${item.pointDifference.roundToInt()};${item.matchesPlayed}")
+        appendLine("${rankingPosition(archive.ranking, index)};${csvCell(item.player.name)};${item.matchesPlayed};${item.wins};${item.rests};${item.pointsWon.roundToInt()};${item.pointDifference.roundToInt()};${(item.winRate * 100).roundToInt()}%")
     }
     appendLine()
     appendLine("HISTORIQUE DES MATCHS")
@@ -295,7 +330,7 @@ private fun shareTournamentReport(context: Context, archive: TournamentArchive, 
         lines.add("" to 0)
         lines.add("CLASSEMENT FINAL" to 1)
         archive.ranking.forEachIndexed { index, item ->
-            lines.add("${index + 1}. ${item.player.name} — ${item.wins} victoire(s) — ${if (item.pointDifference > 0) "+" else ""}${item.pointDifference.roundToInt()} pts — ${item.matchesPlayed} match(s)" to 0)
+            lines.add("${rankingPosition(archive.ranking, index)}. ${item.player.name} — ${(item.winRate * 100).roundToInt()} % victoires — ${item.wins}/${item.matchesPlayed} matchs — ${item.rests} repos — ${item.pointsWon.roundToInt()} pts gagnés — diff. ${if (item.pointDifference > 0) "+" else ""}${item.pointDifference.roundToInt()}" to 0)
         }
         lines.add("" to 0)
         lines.add("HISTORIQUE DES MATCHS" to 1)
@@ -1068,6 +1103,34 @@ private fun SettingsPage(levelsEnabled: Boolean, onLevels: (Boolean) -> Unit, co
 }
 
 @Composable
+private fun RankingTable(ranking: List<PlayerRanking>, modifier: Modifier = Modifier) {
+    Column(modifier.horizontalScroll(rememberScrollState())) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Rang", Modifier.width(42.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("Joueur", Modifier.width(112.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("Joués", Modifier.width(52.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("V", Modifier.width(34.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("Repos", Modifier.width(48.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("Pts +", Modifier.width(52.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("Diff.", Modifier.width(52.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("%", Modifier.width(48.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        ranking.forEachIndexed { index, item ->
+            Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(rankingPosition(ranking, index).toString(), Modifier.width(42.dp), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Text(item.player.name, Modifier.width(112.dp), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(item.matchesPlayed.toString(), Modifier.width(52.dp), style = MaterialTheme.typography.bodySmall)
+                Text(item.wins.toString(), Modifier.width(34.dp), style = MaterialTheme.typography.bodySmall)
+                Text(item.rests.toString(), Modifier.width(48.dp), style = MaterialTheme.typography.bodySmall)
+                Text(item.pointsWon.roundToInt().toString(), Modifier.width(52.dp), style = MaterialTheme.typography.bodySmall)
+                Text((if (item.pointDifference > 0) "+" else "") + item.pointDifference.roundToInt(), Modifier.width(52.dp), style = MaterialTheme.typography.bodySmall)
+                Text("${(item.winRate * 100).roundToInt()} %", Modifier.width(48.dp), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+@Composable
 private fun HistoryPage(
     history: List<RoundHistory>,
     players: List<Player>,
@@ -1089,14 +1152,8 @@ private fun HistoryPage(
                 Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Classement individuel final", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        Text("Classement par victoires, puis différence de points lorsque les deux scores numériques sont renseignés.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        ranking.forEachIndexed { index, item ->
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Text("${index + 1}.", modifier = Modifier.width(30.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                Text(item.player.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                Text("${item.wins} V  •  ${if (item.pointDifference > 0) "+" else ""}${item.pointDifference.roundToInt()} pts", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            }
-                        }
+                        Text("Départage : % de victoires, victoires, différence de points, points gagnés. Les égalités parfaites partagent le même rang. Faites défiler le tableau horizontalement pour voir toutes les colonnes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        RankingTable(ranking, Modifier.fillMaxWidth())
                         val currentArchive = archives.maxByOrNull { it.endedAt }
                         if (currentArchive != null) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1171,9 +1228,7 @@ private fun HistoryPage(
                         }
                         if (expanded) {
                             Text("Classement final", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            archive.ranking.forEachIndexed { index, ranked ->
-                                Text("${index + 1}. ${ranked.player.name} — ${ranked.wins} victoire(s) — ${ranked.pointDifference.roundToInt()} pts")
-                            }
+                            RankingTable(archive.ranking, Modifier.fillMaxWidth())
                             archive.history.forEach { archivedRound ->
                                 Divider()
                                 Text("Tour ${archivedRound.number}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
