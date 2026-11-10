@@ -145,6 +145,133 @@ private fun tournamentCsv(archive: TournamentArchive): String = buildString {
     }
 }
 
+
+private fun playerArrayToJson(players: List<Player>): org.json.JSONArray =
+    org.json.JSONArray().apply {
+        players.forEach { player ->
+            put(org.json.JSONObject().apply {
+                put("id", player.id)
+                put("name", player.name)
+                put("level", player.level ?: org.json.JSONObject.NULL)
+                put("matchesPlayed", player.matchesPlayed)
+            })
+        }
+    }
+
+private fun playerArrayFromJson(array: org.json.JSONArray?): List<Player> {
+    if (array == null) return emptyList()
+    return (0 until array.length()).mapNotNull { index ->
+        runCatching {
+            val item = array.getJSONObject(index)
+            Player(
+                id = item.optString("id"),
+                name = item.optString("name"),
+                level = if (item.isNull("level")) null else item.optInt("level"),
+                matchesPlayed = item.optInt("matchesPlayed")
+            )
+        }.getOrNull()
+    }
+}
+
+private fun saveTournamentArchives(context: Context, archives: List<TournamentArchive>) {
+    val root = org.json.JSONArray()
+    archives.forEach { archive ->
+        val rounds = org.json.JSONArray()
+        archive.history.forEach { round ->
+            val matches = org.json.JSONArray()
+            round.matches.forEach { match ->
+                matches.put(org.json.JSONObject().apply {
+                    put("court", match.court)
+                    put("repeatedGroup", match.repeatedGroup)
+                    put("players", playerArrayToJson(match.players))
+                    put("teamA", playerArrayToJson(match.teamA))
+                    put("teamB", playerArrayToJson(match.teamB))
+                })
+            }
+            val scores = org.json.JSONObject()
+            round.scores.forEach { (court, score) ->
+                scores.put(court.toString(), org.json.JSONArray().put(score.first).put(score.second))
+            }
+            rounds.put(org.json.JSONObject().apply {
+                put("number", round.number)
+                put("matches", matches)
+                put("waiting", playerArrayToJson(round.waiting))
+                put("scores", scores)
+            })
+        }
+        root.put(org.json.JSONObject().apply {
+            put("id", archive.id)
+            put("players", playerArrayToJson(archive.players))
+            put("history", rounds)
+            put("startedAt", archive.startedAt)
+            put("endedAt", archive.endedAt)
+            put("format", archive.format)
+            put("levelsEnabled", archive.levelsEnabled)
+        })
+    }
+    context.getSharedPreferences("tournament_archives", Context.MODE_PRIVATE)
+        .edit().putString("archives", root.toString()).apply()
+}
+
+private fun loadTournamentArchives(context: Context): List<TournamentArchive> {
+    val raw = context.getSharedPreferences("tournament_archives", Context.MODE_PRIVATE)
+        .getString("archives", "[]") ?: "[]"
+    return runCatching {
+        val root = org.json.JSONArray(raw)
+        (0 until root.length()).mapNotNull { archiveIndex ->
+            runCatching {
+                val item = root.getJSONObject(archiveIndex)
+                val snapshotPlayers = playerArrayFromJson(item.optJSONArray("players"))
+                val roundsJson = item.optJSONArray("history") ?: org.json.JSONArray()
+                val snapshotHistory = (0 until roundsJson.length()).mapNotNull { roundIndex ->
+                    runCatching {
+                        val roundJson = roundsJson.getJSONObject(roundIndex)
+                        val matchesJson = roundJson.optJSONArray("matches") ?: org.json.JSONArray()
+                        val roundMatches = (0 until matchesJson.length()).mapNotNull { matchIndex ->
+                            runCatching {
+                                val matchJson = matchesJson.getJSONObject(matchIndex)
+                                DoublesMatch(
+                                    court = matchJson.optInt("court"),
+                                    players = playerArrayFromJson(matchJson.optJSONArray("players")),
+                                    teamA = playerArrayFromJson(matchJson.optJSONArray("teamA")),
+                                    teamB = playerArrayFromJson(matchJson.optJSONArray("teamB")),
+                                    repeatedGroup = matchJson.optBoolean("repeatedGroup")
+                                )
+                            }.getOrNull()
+                        }
+                        val scoreMap = mutableMapOf<Int, Pair<String, String>>()
+                        val scoresJson = roundJson.optJSONObject("scores") ?: org.json.JSONObject()
+                        val scoreKeys = scoresJson.keys()
+                        while (scoreKeys.hasNext()) {
+                            val key = scoreKeys.next()
+                            val values = scoresJson.optJSONArray(key) ?: continue
+                            if (values.length() >= 2) scoreMap[key.toIntOrNull() ?: continue] =
+                                values.optString(0) to values.optString(1)
+                        }
+                        RoundHistory(
+                            number = roundJson.optInt("number"),
+                            matches = roundMatches,
+                            waiting = playerArrayFromJson(roundJson.optJSONArray("waiting")),
+                            scores = scoreMap
+                        )
+                    }.getOrNull()
+                }
+                val endedAt = item.optLong("endedAt")
+                TournamentArchive(
+                    id = item.optLong("id", endedAt),
+                    players = snapshotPlayers,
+                    history = snapshotHistory,
+                    ranking = buildIndividualRanking(snapshotPlayers, snapshotHistory),
+                    startedAt = item.optLong("startedAt", endedAt),
+                    endedAt = endedAt,
+                    format = item.optString("format", "Doubles"),
+                    levelsEnabled = item.optBoolean("levelsEnabled")
+                )
+            }.getOrNull()
+        }
+    }.getOrElse { emptyList() }
+}
+
 private fun shareTournamentReport(context: Context, archive: TournamentArchive, format: String) {
     val reportsDir = File(context.cacheDir, "tournament_reports").apply { mkdirs() }
     val stamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date(archive.endedAt))
@@ -254,6 +381,7 @@ private fun TennisGroupsApp() {
     var menuOpen by remember { mutableStateOf(false) }
     var languageOpen by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     var page by remember { mutableStateOf("players") }
     var round by remember { mutableIntStateOf(0) }
     var matches by remember { mutableStateOf(emptyList<DoublesMatch>()) }
@@ -264,7 +392,7 @@ private fun TennisGroupsApp() {
     var timerEndHandled by remember { mutableStateOf(false) }
     var finishDialogOpen by remember { mutableStateOf(false) }
     var tournamentFinished by remember { mutableStateOf(false) }
-    val tournamentArchives = remember { mutableStateListOf<TournamentArchive>() }
+    val tournamentArchives = remember { mutableStateListOf<TournamentArchive>().apply { addAll(loadTournamentArchives(context)) } }
     var tournamentStartedAt by remember { mutableLongStateOf(0L) }
     var tournamentResetDialogOpen by remember { mutableStateOf(false) }
     var archiveToDelete by remember { mutableStateOf<TournamentArchive?>(null) }
@@ -335,7 +463,6 @@ private fun TennisGroupsApp() {
                 confirmButton = { TextButton(onClick = { languageOpen = false }) { Text("Fermer") } }
             )
         }
-        val context = androidx.compose.ui.platform.LocalContext.current
         LaunchedEffect(running) {
             while (running && remaining > 0) {
                 delay(1000)
@@ -385,6 +512,7 @@ private fun TennisGroupsApp() {
                                 levelsEnabled = levelEnabled
                             )
                         )
+                        saveTournamentArchives(context, tournamentArchives)
                         tournamentFinished = true
                         page = "history"
                     }) { Text("Terminer") }
@@ -432,6 +560,7 @@ private fun TennisGroupsApp() {
                 confirmButton = {
                     TextButton(onClick = {
                         tournamentArchives.removeAll { it.id == archive.id }
+                        saveTournamentArchives(context, tournamentArchives)
                         archiveToDelete = null
                     }) { Text("Supprimer") }
                 },
