@@ -20,13 +20,21 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import com.adwanadam.tennisgroups.domain.DoublesMatch
 import com.adwanadam.tennisgroups.domain.Player
 import com.adwanadam.tennisgroups.domain.RotationEngine
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
-private val languages = listOf("Français", "English", "Español", "Italiano", "Português", "Deutsch", "中文（简体）", "日本語", "हिन्दी", "Nederlands", "Русский", "Čeština", "Српски")
+private data class AppLanguage(val name: String, val flag: String)
+private val languages = listOf(
+    AppLanguage("Français", "🇫🇷"), AppLanguage("English", "🇬🇧"), AppLanguage("Español", "🇪🇸"),
+    AppLanguage("Italiano", "🇮🇹"), AppLanguage("Português", "🇵🇹"), AppLanguage("Deutsch", "🇩🇪"),
+    AppLanguage("中文（简体）", "🇨🇳"), AppLanguage("日本語", "🇯🇵"), AppLanguage("हिन्दी", "🇮🇳"),
+    AppLanguage("Nederlands", "🇳🇱"), AppLanguage("Русский", "🇷🇺"), AppLanguage("Čeština", "🇨🇿"),
+    AppLanguage("Српски", "🇷🇸")
+)
 private val levels = mapOf(1 to "Débutant", 2 to "Intermédiaire", 3 to "Avancé")
 private data class RoundHistory(val number: Int, val matches: List<DoublesMatch>, val waiting: List<Player>)
 
@@ -53,6 +61,7 @@ private fun TennisGroupsApp() {
     var language by remember { mutableStateOf("Français") }
     var menuOpen by remember { mutableStateOf(false) }
     var languageOpen by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
     var page by remember { mutableStateOf("players") }
     var round by remember { mutableIntStateOf(0) }
     var matches by remember { mutableStateOf(emptyList<DoublesMatch>()) }
@@ -64,7 +73,7 @@ private fun TennisGroupsApp() {
     var tournamentFormat by remember { mutableStateOf("Doubles") }
 
     fun generateRound() {
-        val result = RotationEngine().generate(players.toList(), courts, levelEnabled, previousGroups.toSet(), previousPartners.toSet())
+        val result = RotationEngine().generate(players.toList(), courts, levelEnabled, previousGroups.toSet(), previousPartners.toSet(), tournamentFormat == "Simples")
         matches = result.matches
         waiting = result.waiting
         warning = result.hasExhaustedUniqueGroups
@@ -92,6 +101,35 @@ private fun TennisGroupsApp() {
         background = androidx.compose.ui.graphics.Color(0xFFF5F7F4),
         surfaceVariant = androidx.compose.ui.graphics.Color(0xFFE8EEE9)
     )) {
+        if (languageOpen) {
+            AlertDialog(
+                onDismissRequest = { languageOpen = false },
+                title = { Text("Langue de l’application", fontWeight = FontWeight.Bold) },
+                text = {
+                    LazyColumn(Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        items(languages) { option ->
+                            val selected = language == option.name
+                            Surface(
+                                onClick = { language = option.name; languageOpen = false },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(option.flag, style = MaterialTheme.typography.titleLarge)
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(option.name, modifier = Modifier.weight(1f), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                                    if (selected) Icon(Icons.Default.Check, contentDescription = "Sélectionnée", tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { languageOpen = false }) { Text("Fermer") } }
+            )
+        }
         LaunchedEffect(running) {
             while (running && remaining > 0) {
                 delay(1000)
@@ -115,15 +153,11 @@ private fun TennisGroupsApp() {
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(text = { Text("Joueurs") }, leadingIcon = { Icon(Icons.Default.People, null) }, onClick = { page = "players"; menuOpen = false })
                                 DropdownMenuItem(text = { Text("Matchs") }, leadingIcon = { Icon(Icons.Default.SportsTennis, null) }, onClick = { page = "matches"; menuOpen = false })
-                                DropdownMenuItem(text = { Text("Options du tournoi") }, leadingIcon = { Icon(Icons.Default.Settings, null) }, onClick = { page = "settings"; menuOpen = false })
                                 DropdownMenuItem(text = { Text("Historique") }, leadingIcon = { Icon(Icons.Default.History, null) }, onClick = { page = "history"; menuOpen = false })
                                 HorizontalDivider()
-                                DropdownMenuItem(text = { Text("Soutenir l'application · Ko-fi") }, leadingIcon = { Icon(Icons.Default.Coffee, null) }, onClick = { menuOpen = false })
-                                DropdownMenuItem(text = { Text("Langue : " + language) }, leadingIcon = { Icon(Icons.Default.Language, null) }, onClick = { languageOpen = true; menuOpen = false })
+                                DropdownMenuItem(text = { Text("Payer moi un café") }, leadingIcon = { Icon(Icons.Default.Coffee, null) }, onClick = { menuOpen = false; uriHandler.openUri("https://ko-fi.com/ada7875") })
+                                DropdownMenuItem(text = { Text("Langue : " + (languages.firstOrNull { it.name == language }?.flag ?: "🌐") + " " + language) }, leadingIcon = { Icon(Icons.Default.Language, null) }, onClick = { languageOpen = true; menuOpen = false })
                                 DropdownMenuItem(text = { Text("À propos") }, leadingIcon = { Icon(Icons.Default.Info, null) }, onClick = { page = "about"; menuOpen = false })
-                            }
-                            DropdownMenu(expanded = languageOpen, onDismissRequest = { languageOpen = false }) {
-                                languages.forEach { lang -> DropdownMenuItem(text = { Text(lang) }, onClick = { language = lang; languageOpen = false }) }
                             }
                         }
                     },
@@ -143,11 +177,9 @@ private fun TennisGroupsApp() {
             }
         ) { padding ->
             when (page) {
-                "matches" -> MatchesPage(round, matches, waiting, warning, remaining, running, duration, levelEnabled, players.size,
-                    { running = !running }, { running = false; remaining = duration * 60 }, { if (players.size >= 4) generateRound() }, Modifier.padding(padding))
+                "matches" -> MatchesPage(round, matches, waiting, warning, remaining, running, duration, levelEnabled, players.size, tournamentFormat,
+                    { running = !running }, { running = false; remaining = duration * 60 }, { if (players.size >= (if (tournamentFormat == "Simples") 2 else 4)) generateRound() }, Modifier.padding(padding))
                 "history" -> HistoryPage(history.toList(), levelEnabled, Modifier.padding(padding))
-                "settings" -> SettingsPage(levelEnabled, { levelEnabled = it }, courts, { courts = it.coerceIn(1, 20) }, duration,
-                    { duration = it.coerceIn(5, 180); remaining = duration * 60 }, Modifier.padding(padding))
                 "about" -> AboutPage(Modifier.padding(padding))
                 else -> PlayersPage(
                     players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it }, newLevel, { newLevel = it },
@@ -277,7 +309,7 @@ private fun PlayersPage(
             }
         }
         item {
-            Button(onGenerate, enabled = players.size >= 4, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp)) {
+            Button(onGenerate, enabled = players.size >= (if (tournamentFormat == "Simples") 2 else 4), modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp)) {
                 Icon(Icons.Default.Shuffle, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Générer les matchs", style = MaterialTheme.typography.titleMedium)
@@ -362,7 +394,7 @@ private fun EditPlayerDialog(player: Player, levelsEnabled: Boolean, onDismiss: 
 @Composable
 private fun MatchesPage(
     round: Int, matches: List<DoublesMatch>, waiting: List<Player>, warning: Boolean,
-    remaining: Int, running: Boolean, duration: Int, levelsEnabled: Boolean, playerCount: Int,
+    remaining: Int, running: Boolean, duration: Int, levelsEnabled: Boolean, playerCount: Int, tournamentFormat: String,
     onToggle: () -> Unit, onReset: () -> Unit, onNext: () -> Unit, modifier: Modifier
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -376,7 +408,7 @@ private fun MatchesPage(
                     Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.SportsTennis, null, modifier = Modifier.size(42.dp), tint = MaterialTheme.colorScheme.primary)
                         Text("Aucun match généré", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                        Text("Ajoutez au moins quatre joueurs, puis générez les matchs depuis l'écran Joueurs.")
+                        Text(if (tournamentFormat == "Simples") "Ajoutez au moins deux joueurs, puis générez les matchs depuis l'écran Joueurs." else "Ajoutez au moins quatre joueurs, puis générez les matchs depuis l'écran Joueurs.")
                     }
                 }
             }
@@ -413,9 +445,9 @@ private fun MatchesPage(
                             }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-                            TeamPlayerColumn("ÉQUIPE A", match.teamA, Modifier.weight(1f), levelsEnabled)
+                            TeamPlayerColumn(if (tournamentFormat == "Simples") "JOUEUR A" else "ÉQUIPE A", match.teamA, Modifier.weight(1f), levelsEnabled)
                             Text("VS", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                            TeamPlayerColumn("ÉQUIPE B", match.teamB, Modifier.weight(1f), levelsEnabled)
+                            TeamPlayerColumn(if (tournamentFormat == "Simples") "JOUEUR B" else "ÉQUIPE B", match.teamB, Modifier.weight(1f), levelsEnabled)
                         }
                         if (match.repeatedGroup) Text("Groupe déjà rencontré", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
                     }
@@ -433,7 +465,7 @@ private fun MatchesPage(
                 }
             }
             item {
-                Button(onNext, enabled = playerCount >= 4, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) {
+                Button(onNext, enabled = playerCount >= (if (tournamentFormat == "Simples") 2 else 4), modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) {
                     Icon(Icons.Default.Autorenew, null)
                     Spacer(Modifier.width(8.dp))
                     Text("Générer le tour suivant")
@@ -506,7 +538,7 @@ private fun HistoryPage(history: List<RoundHistory>, levelsEnabled: Boolean, mod
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Tour " + item.number, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text(item.matches.size.toString() + " terrain(s)", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                            Text(item.matches.size.toString() + (if (item.matches.size == 1) " terrain" else " terrains"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                         }
                         item.matches.forEach { match ->
                             Text("Terrain " + match.court, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -517,7 +549,7 @@ private fun HistoryPage(history: List<RoundHistory>, levelsEnabled: Boolean, mod
                             }
                             if (match.repeatedGroup) Text("Groupe déjà rencontré", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                         }
-                        if (item.waiting.isNotEmpty()) Text(item.waiting.size.toString() + " joueur(s) en attente", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (item.waiting.isNotEmpty()) Text(item.waiting.size.toString() + (if (item.waiting.size == 1) " joueur en attente : " else " joueurs en attente : ") + item.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -539,8 +571,8 @@ private fun HistoryTeam(players: List<Player>, levelsEnabled: Boolean, modifier:
 private fun AboutPage(modifier: Modifier) {
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("À propos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Tennis Groups aide les clubs à organiser des rencontres amicales en double.")
-        Text("L'application renouvelle les groupes de quatre, fait varier les partenaires et peut équilibrer les équipes grâce aux trois niveaux individuels facultatifs.")
+        Text("Tennis tournament aide les clubs à organiser des rencontres amicales en simple et en double.")
+        Text("L'application renouvelle les adversaires en simple et les groupes en double, fait varier les partenaires et peut équilibrer les équipes grâce aux trois niveaux individuels facultatifs.")
         Text("Version 1.0.0", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
