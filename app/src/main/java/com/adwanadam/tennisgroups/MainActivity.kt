@@ -193,19 +193,19 @@ private fun formatTournamentDate(timestamp: Long, language: String = "Français"
 private fun csvCell(value: String): String = "\"" + value.replace("\"", "\"\"") + "\""
 
 private fun tournamentCsv(archive: TournamentArchive, language: String): String = buildString {
-    appendLine("BILAN DU TOURNOI")
-    appendLine("Format;${csvCell(archive.format)}")
-    appendLine("Début;${csvCell(formatTournamentDate(archive.startedAt, language))}")
-    appendLine("Fin;${csvCell(formatTournamentDate(archive.endedAt, language))}")
+    appendLine(translateUiText("BILAN DU TOURNOI", language))
+    appendLine(translateUiText("Format;", language) + csvCell(translateUiText(archive.format, language)))
+    appendLine(translateUiText("Début;", language) + csvCell(formatTournamentDate(archive.startedAt, language)))
+    appendLine(translateUiText("Fin;", language) + csvCell(formatTournamentDate(archive.endedAt, language)))
     appendLine()
-    appendLine("CLASSEMENT FINAL")
-    appendLine("Rang;Joueur;Matchs joués;Victoires;Repos;Points gagnés;Différence de points;Pourcentage de victoires")
+    appendLine(translateUiText("CLASSEMENT FINAL", language))
+    appendLine(translateUiText("Rang;Joueur;Matchs joués;Victoires;Repos;Points gagnés;Différence de points;Pourcentage de victoires", language))
     archive.ranking.forEachIndexed { index, item ->
         appendLine("${rankingPosition(archive.ranking, index)};${csvCell(item.player.name)};${item.matchesPlayed};${item.wins};${item.rests};${item.pointsWon.roundToInt()};${item.pointDifference.roundToInt()};${(item.winRate * 100).roundToInt()}%")
     }
     appendLine()
-    appendLine("HISTORIQUE DES MATCHS")
-    appendLine("Tour;Terrain;Équipe/Joueur A;Score A;Équipe/Joueur B;Score B;Joueurs en attente")
+    appendLine(translateUiText("HISTORIQUE DES MATCHS", language))
+    appendLine(translateUiText("Tour;Terrain;Équipe/Joueur A;Score A;Équipe/Joueur B;Score B;Joueurs en attente", language))
     archive.history.forEach { round ->
         round.matches.forEach { match ->
             val score = round.scores[match.court]
@@ -356,17 +356,17 @@ private fun shareTournamentReport(context: Context, archive: TournamentArchive, 
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 18f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); color = android.graphics.Color.BLACK }
         val sectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 14f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); color = android.graphics.Color.BLACK }
         val lines = mutableListOf<Pair<String, Int>>()
-        lines.add("BILAN DU TOURNOI" to 2)
-        lines.add("Format : ${archive.format}" to 0)
-        lines.add("Début : ${formatTournamentDate(archive.startedAt)}" to 0)
-        lines.add("Fin : ${formatTournamentDate(archive.endedAt)}" to 0)
+        lines.add(translateUiText("BILAN DU TOURNOI", language) to 2)
+        lines.add(translateUiText("Format : ", language) + translateUiText(archive.format, language) to 0)
+        lines.add(translateUiText("Début : ", language) + formatTournamentDate(archive.startedAt, language) to 0)
+        lines.add(translateUiText("Fin : ", language) + formatTournamentDate(archive.endedAt, language) to 0)
         lines.add("" to 0)
-        lines.add("CLASSEMENT FINAL" to 1)
+        lines.add(translateUiText("CLASSEMENT FINAL", language) to 1)
         archive.ranking.forEachIndexed { index, item ->
             lines.add("${rankingPosition(archive.ranking, index)}. ${item.player.name} — ${(item.winRate * 100).roundToInt()} % victoires — ${item.wins}/${item.matchesPlayed} matchs — ${item.rests} repos — ${item.pointsWon.roundToInt()} pts gagnés — diff. ${if (item.pointDifference > 0) "+" else ""}${item.pointDifference.roundToInt()}" to 0)
         }
         lines.add("" to 0)
-        lines.add("HISTORIQUE DES MATCHS" to 1)
+        lines.add(translateUiText("HISTORIQUE DES MATCHS", language) to 1)
         archive.history.forEach { round ->
             lines.add("TOUR ${round.number}" to 1)
             round.matches.forEach { match ->
