@@ -1093,7 +1093,7 @@ private fun MatchScoresDialog(
                     Card(shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Terrain ${match.court}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text((if (tournamentFormat == "Simples") "Joueur A : " else "Équipe A : ") + match.teamA.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall)
+                            Text(translateUiText(if (tournamentFormat == "Simples") "Joueur A : " else "Équipe A : ", LocalAppLanguage.current) + match.teamA.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, translate = false)
                             OutlinedTextField(
                                 value = scoreA,
                                 onValueChange = { scoreA = it; enteredScores[match.court] = scoreA to scoreB },
@@ -1101,7 +1101,7 @@ private fun MatchScoresDialog(
                                 label = { Text(if (tournamentFormat == "Simples") "Score joueur A" else "Score équipe A") },
                                 singleLine = true
                             )
-                            Text((if (tournamentFormat == "Simples") "Joueur B : " else "Équipe B : ") + match.teamB.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall)
+                            Text(translateUiText(if (tournamentFormat == "Simples") "Joueur B : " else "Équipe B : ", LocalAppLanguage.current) + match.teamB.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, translate = false)
                             OutlinedTextField(
                                 value = scoreB,
                                 onValueChange = { scoreB = it; enteredScores[match.court] = scoreA to scoreB },
