@@ -7,7 +7,7 @@ internal fun translateUiText(source: String, language: String): String {
     val cacheKey = source to language
     synchronized(translationCache) { translationCache[cacheKey]?.let { return it } }
     val translated = translateUiTextUncached(source, language)
-    synchronized(translationCache) { translationCache[cacheKey] = translated }
+    synchronized(translationCache) { if (translationCache.size > 1024) translationCache.clear(); translationCache[cacheKey] = translated }
     return translated
 }
 
