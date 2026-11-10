@@ -1,7 +1,17 @@
 package com.adwanadam.tennisgroups
 
 /** Centralized UI translations. Player names and entered scores are intentionally never translated. */
+private val translationCache = mutableMapOf<Pair<String, String>, String>()
+
 internal fun translateUiText(source: String, language: String): String {
+    val cacheKey = source to language
+    synchronized(translationCache) { translationCache[cacheKey]?.let { return it } }
+    val translated = translateUiTextUncached(source, language)
+    synchronized(translationCache) { translationCache[cacheKey] = translated }
+    return translated
+}
+
+private fun translateUiTextUncached(source: String, language: String): String {
     if (language == "Français") return source
     val translations = mapOf(
         "English" to mapOf(
