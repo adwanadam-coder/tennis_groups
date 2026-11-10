@@ -1,10 +1,18 @@
 package com.adwanadam.tennisgroups
 
 import android.os.Bundle
+import android.content.Context
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +28,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalUriHandler
 import com.adwanadam.tennisgroups.domain.DoublesMatch
 import com.adwanadam.tennisgroups.domain.Player
@@ -37,6 +48,39 @@ private val languages = listOf(
 )
 private val levels = mapOf(1 to "Débutant", 2 to "Intermédiaire", 3 to "Avancé")
 private data class RoundHistory(val number: Int, val matches: List<DoublesMatch>, val waiting: List<Player>, val scores: Map<Int, Pair<String, String>> = emptyMap())
+private data class PlayerRanking(val player: Player, val wins: Int, val pointDifference: Double, val matchesPlayed: Int)
+
+private fun buildIndividualRanking(players: List<Player>, history: List<RoundHistory>): List<PlayerRanking> {
+    val stats = players.associate { it.id to doubleArrayOf(0.0, 0.0, 0.0) }.toMutableMap()
+    history.forEach { round ->
+        round.matches.forEach { match ->
+            val a = round.scores[match.court]?.first?.trim()?.replace(',', '.')?.toDoubleOrNull()
+            val b = round.scores[match.court]?.second?.trim()?.replace(',', '.')?.toDoubleOrNull()
+            (match.teamA + match.teamB).forEach { player ->
+                stats.getOrPut(player.id) { doubleArrayOf(0.0, 0.0, 0.0) }[2] += 1.0
+            }
+            if (a != null && b != null) {
+                match.teamA.forEach { player ->
+                    val values = stats.getOrPut(player.id) { doubleArrayOf(0.0, 0.0, 0.0) }
+                    values[1] += a - b
+                    if (a > b) values[0] += 1.0
+                }
+                match.teamB.forEach { player ->
+                    val values = stats.getOrPut(player.id) { doubleArrayOf(0.0, 0.0, 0.0) }
+                    values[1] += b - a
+                    if (b > a) values[0] += 1.0
+                }
+            }
+        }
+    }
+    return players.map { player ->
+        val values = stats[player.id] ?: doubleArrayOf(0.0, 0.0, 0.0)
+        PlayerRanking(player, values[0].roundToInt(), values[1], values[2].roundToInt())
+    }.sortedWith(compareByDescending<PlayerRanking> { it.wins }
+        .thenByDescending { it.pointDifference }
+        .thenByDescending { it.matchesPlayed }
+        .thenBy { it.player.name.lowercase() })
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +116,9 @@ private fun TennisGroupsApp() {
     var warning by remember { mutableStateOf(false) }
     var remaining by remember { mutableIntStateOf(1200) }
     var running by remember { mutableStateOf(false) }
+    var timerEndHandled by remember { mutableStateOf(false) }
+    var finishDialogOpen by remember { mutableStateOf(false) }
+    var tournamentFinished by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Player?>(null) }
     var tournamentFormat by remember { mutableStateOf("Doubles") }
 
@@ -91,6 +138,7 @@ private fun TennisGroupsApp() {
         round += 1
         remaining = duration * 60
         running = false
+        timerEndHandled = false
         scoreDialogOpen = false
         scoreDialogShown = false
         scoreInputs.clear()
@@ -136,18 +184,57 @@ private fun TennisGroupsApp() {
                 confirmButton = { TextButton(onClick = { languageOpen = false }) { Text("Fermer") } }
             )
         }
+        val context = androidx.compose.ui.platform.LocalContext.current
         LaunchedEffect(running) {
             while (running && remaining > 0) {
                 delay(1000)
                 remaining -= 1
             }
-            if (remaining == 0) {
+            if (remaining == 0 && !timerEndHandled) {
+                timerEndHandled = true
+                val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75)
+                tone.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    (context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
+                }
+                vibrator?.let {
+                    val pattern = longArrayOf(0, 150, 120, 150, 120, 150)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        it.vibrate(VibrationEffect.createWaveform(pattern, -1))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        it.vibrate(pattern, -1)
+                    }
+                }
+                delay(250)
+                tone.release()
                 running = false
                 if (scoreEntryEnabled && matches.isNotEmpty() && !scoreDialogShown) {
                     scoreDialogShown = true
                     scoreDialogOpen = true
                 }
             }
+        }
+
+        if (finishDialogOpen) {
+            AlertDialog(
+                onDismissRequest = { finishDialogOpen = false },
+                title = { Text("Terminer le tournoi ?", fontWeight = FontWeight.Bold) },
+                text = { Text("Le tournoi sera clôturé et le classement individuel sera disponible dans l’historique.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        finishDialogOpen = false
+                        running = false
+                        scoreDialogOpen = false
+                        tournamentFinished = true
+                        page = "history"
+                    }) { Text("Terminer") }
+                },
+                dismissButton = { TextButton(onClick = { finishDialogOpen = false }) { Text("Annuler") } }
+            )
         }
 
         if (scoreDialogOpen) {
@@ -215,10 +302,12 @@ private fun TennisGroupsApp() {
                     { running = !running }, {
                         running = false
                         remaining = duration * 60
+                        timerEndHandled = false
                         scoreDialogOpen = false
                         scoreDialogShown = false
-                    }, { if (players.size >= (if (tournamentFormat == "Simples") 2 else 4)) generateRound() }, scoreInputs.toMap(), Modifier.padding(padding))
-                "history" -> HistoryPage(history.toList(), levelEnabled, Modifier.padding(padding))
+                    }, { if (players.size >= (if (tournamentFormat == "Simples") 2 else 4)) generateRound() },
+                    { finishDialogOpen = true }, scoreInputs.toMap(), Modifier.padding(padding))
+                "history" -> HistoryPage(history.toList(), players.toList(), levelEnabled, tournamentFinished, Modifier.padding(padding))
                 "about" -> AboutPage(Modifier.padding(padding))
                 else -> PlayersPage(
                     players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it },
@@ -332,7 +421,7 @@ private fun PlayersPage(
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Organisation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        OrganizationInput("Terrains disponibles", courts, "terrain", { Icon(Icons.Default.SportsTennis, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
+                        OrganizationInput("Terrains disponibles", courts, "terrain", { TennisCourtIcon() }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
                         OrganizationInput("Durée du match", duration, "min", { Icon(Icons.Default.AccessTime, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onDuration(it.coerceIn(1, 99)) }
                     }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -370,6 +459,19 @@ private fun LevelSelector(selected: Int, onSelected: (Int) -> Unit) {
     }
 }
 
+
+@Composable
+private fun TennisCourtIcon() {
+    val color = MaterialTheme.colorScheme.primary
+    Canvas(Modifier.size(24.dp)) {
+        val stroke = Stroke(width = 1.7.dp.toPx())
+        drawRect(color = color, style = stroke)
+        drawLine(color, Offset(size.width / 2f, 0f), Offset(size.width / 2f, size.height), stroke.width)
+        drawLine(color, Offset(0f, size.height / 2f), Offset(size.width, size.height / 2f), stroke.width)
+        drawLine(color, Offset(size.width * 0.22f, 0f), Offset(size.width * 0.22f, size.height), stroke.width)
+        drawLine(color, Offset(size.width * 0.78f, 0f), Offset(size.width * 0.78f, size.height), stroke.width)
+    }
+}
 
 @Composable
 private fun OrganizationInput(
@@ -439,12 +541,19 @@ private fun EditPlayerDialog(player: Player, levelsEnabled: Boolean, onDismiss: 
 private fun MatchesPage(
     round: Int, matches: List<DoublesMatch>, waiting: List<Player>, warning: Boolean,
     remaining: Int, running: Boolean, duration: Int, levelsEnabled: Boolean, playerCount: Int, tournamentFormat: String,
-    onToggle: () -> Unit, onReset: () -> Unit, onNext: () -> Unit,
+    onToggle: () -> Unit, onReset: () -> Unit, onNext: () -> Unit, onFinishTournament: () -> Unit,
     scores: Map<Int, Pair<String, String>>, modifier: Modifier
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Text(if (round == 0) "Matchs" else "Tour " + round, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (round == 0) "Matchs" else "Tour " + round, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                if (round > 0) {
+                    TextButton(onClick = onFinishTournament, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)) {
+                        Text("Fin du tournoi", fontSize = MaterialTheme.typography.labelMedium.fontSize, maxLines = 1, softWrap = false)
+                    }
+                }
+            }
             Text(if (round == 0) "Les rencontres apparaîtront ici." else quantityLabel(matches.size, "terrain") + " en jeu", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (round == 0) {
@@ -473,7 +582,7 @@ private fun MatchesPage(
                             OutlinedButton(onReset) {
                                 Icon(Icons.Default.Refresh, null)
                                 Spacer(Modifier.width(6.dp))
-                                Text("Réinitialiser", fontSize = MaterialTheme.typography.labelMedium.fontSize, maxLines = 1, softWrap = false)
+                                Text("Réinitialiser", fontSize = 10.sp, maxLines = 1, softWrap = false)
                             }
                         }
                     }
@@ -606,7 +715,7 @@ private fun SettingsPage(levelsEnabled: Boolean, onLevels: (Boolean) -> Unit, co
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Organisation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    OrganizationInput("Terrains disponibles", courts, "terrain", { Icon(Icons.Default.SportsTennis, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
+                    OrganizationInput("Terrains disponibles", courts, "terrain", { TennisCourtIcon() }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
                     OrganizationInput("Durée du match", duration, "min", { Icon(Icons.Default.AccessTime, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onDuration(it.coerceIn(5, 180)) }
                 }
             }
@@ -615,11 +724,29 @@ private fun SettingsPage(levelsEnabled: Boolean, onLevels: (Boolean) -> Unit, co
 }
 
 @Composable
-private fun HistoryPage(history: List<RoundHistory>, levelsEnabled: Boolean, modifier: Modifier) {
+private fun HistoryPage(history: List<RoundHistory>, players: List<Player>, levelsEnabled: Boolean, tournamentFinished: Boolean, modifier: Modifier) {
+    val ranking = remember(history, players) { buildIndividualRanking(players, history) }
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text("Historique", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text("Retrouvez les rencontres et les partenaires de chaque tour.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (tournamentFinished) {
+            item {
+                Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Classement individuel final", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text("Classement par victoires, puis différence de points lorsque les deux scores numériques sont renseignés.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ranking.forEachIndexed { index, item ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("${index + 1}.", modifier = Modifier.width(30.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Text(item.player.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Text("${item.wins} V  •  ${if (item.pointDifference > 0) "+" else ""}${item.pointDifference.roundToInt()} pts", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            }
+                        }
+                    }
+                }
+            }
         }
         if (history.isEmpty()) {
             item {
