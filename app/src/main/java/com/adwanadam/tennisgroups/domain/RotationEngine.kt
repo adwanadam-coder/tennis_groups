@@ -48,22 +48,50 @@ class RotationEngine {
         return RotationResult(matches, available, exhausted)
     }
 
+    private fun comparePlayerLoads(first: List<Player>, second: List<Player>): Int {
+        val firstLoads = first.map { it.matchesPlayed }.sortedDescending()
+        val secondLoads = second.map { it.matchesPlayed }.sortedDescending()
+        for (index in firstLoads.indices) {
+            val comparison = firstLoads[index].compareTo(secondLoads[index])
+            if (comparison != 0) return comparison
+        }
+        return 0
+    }
+
+    private fun compareSinglesPairs(first: List<Player>, second: List<Player>, levelsEnabled: Boolean): Int {
+        val loadComparison = comparePlayerLoads(first, second)
+        if (loadComparison != 0) return loadComparison
+        if (levelsEnabled && first.all { it.level != null } && second.all { it.level != null }) {
+            val firstGap = abs(first[0].level!! - first[1].level!!)
+            val secondGap = abs(second[0].level!! - second[1].level!!)
+            val levelComparison = firstGap.compareTo(secondGap)
+            if (levelComparison != 0) return levelComparison
+        }
+        return first.map { it.id }.sorted().joinToString("|")
+            .compareTo(second.map { it.id }.sorted().joinToString("|"))
+    }
+
+    private fun compareGroups(first: List<Player>, second: List<Player>, levelsEnabled: Boolean): Int {
+        val loadComparison = comparePlayerLoads(first, second)
+        if (loadComparison != 0) return loadComparison
+        if (levelsEnabled) {
+            val levelComparison = levelSpread(first).compareTo(levelSpread(second))
+            if (levelComparison != 0) return levelComparison
+        }
+        return first.map { it.id }.sorted().joinToString("|")
+            .compareTo(second.map { it.id }.sorted().joinToString("|"))
+    }
+
     private fun chooseSinglesPair(pool: List<Player>, history: Set<String>, levelsEnabled: Boolean): Pair<List<Player>, Boolean>? {
         var best: List<Player>? = null
-        var bestScore = Double.POSITIVE_INFINITY
         var repeatedBest: List<Player>? = null
-        var repeatedScore = Double.POSITIVE_INFINITY
         for (a in 0 until pool.size - 1) for (b in a + 1 until pool.size) {
             val pair = listOf(pool[a], pool[b])
             val key = pair.map { it.id }.sorted().joinToString("|")
-            val levelGap = if (levelsEnabled && pair.all { it.level != null }) abs(pair[0].level!! - pair[1].level!!).toDouble() else 0.0
-            val score = pair.sumOf { it.matchesPlayed } * 100.0 + levelGap * 20.0
-            if (key !in history && score < bestScore) {
-                best = pair
-                bestScore = score
-            } else if (key in history && score < repeatedScore) {
-                repeatedBest = pair
-                repeatedScore = score
+            if (key !in history) {
+                if (best == null || compareSinglesPairs(pair, best!!, levelsEnabled) < 0) best = pair
+            } else {
+                if (repeatedBest == null || compareSinglesPairs(pair, repeatedBest!!, levelsEnabled) < 0) repeatedBest = pair
             }
         }
         return when {
@@ -75,20 +103,15 @@ class RotationEngine {
 
     private fun chooseGroup(pool: List<Player>, history: Set<String>, levelsEnabled: Boolean): Pair<List<Player>, Boolean>? {
         var best: List<Player>? = null
-        var bestScore = Double.POSITIVE_INFINITY
         var repeatedBest: List<Player>? = null
-        var repeatedScore = Double.POSITIVE_INFINITY
         for (a in 0 until pool.size - 3) for (b in a + 1 until pool.size - 2)
             for (c in b + 1 until pool.size - 1) for (d in c + 1 until pool.size) {
                 val group = listOf(pool[a], pool[b], pool[c], pool[d])
                 val key = group.map { it.id }.sorted().joinToString("|")
-                val score = group.sumOf { it.matchesPlayed } * 100.0 + if (levelsEnabled) levelSpread(group) * 2.0 else 0.0
-                if (key !in history && score < bestScore) {
-                    best = group
-                    bestScore = score
-                } else if (key in history && score < repeatedScore) {
-                    repeatedBest = group
-                    repeatedScore = score
+                if (key !in history) {
+                    if (best == null || compareGroups(group, best!!, levelsEnabled) < 0) best = group
+                } else {
+                    if (repeatedBest == null || compareGroups(group, repeatedBest!!, levelsEnabled) < 0) repeatedBest = group
                 }
             }
         return when {
