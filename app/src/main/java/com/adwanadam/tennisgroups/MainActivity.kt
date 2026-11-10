@@ -124,23 +124,23 @@ private fun csvCell(value: String): String = "\"" + value.replace("\"", "\"\"") 
 
 private fun tournamentCsv(archive: TournamentArchive): String = buildString {
     appendLine("BILAN DU TOURNOI")
-    appendLine("Format,${csvCell(archive.format)}")
-    appendLine("Début,${csvCell(formatTournamentDate(archive.startedAt))}")
-    appendLine("Fin,${csvCell(formatTournamentDate(archive.endedAt))}")
+    appendLine("Format;${csvCell(archive.format)}")
+    appendLine("Début;${csvCell(formatTournamentDate(archive.startedAt))}")
+    appendLine("Fin;${csvCell(formatTournamentDate(archive.endedAt))}")
     appendLine()
     appendLine("CLASSEMENT FINAL")
-    appendLine("Rang,Joueur,Victoires,Différence de points,Matchs joués")
+    appendLine("Rang;Joueur;Victoires;Différence de points;Matchs joués")
     archive.ranking.forEachIndexed { index, item ->
-        appendLine("${index + 1},${csvCell(item.player.name)},${item.wins},${item.pointDifference.roundToInt()},${item.matchesPlayed}")
+        appendLine("${index + 1};${csvCell(item.player.name)};${item.wins};${item.pointDifference.roundToInt()};${item.matchesPlayed}")
     }
     appendLine()
     appendLine("HISTORIQUE DES MATCHS")
-    appendLine("Tour,Terrain,Équipe/Joueur A,Score A,Équipe/Joueur B,Score B,Joueurs en attente")
+    appendLine("Tour;Terrain;Équipe/Joueur A;Score A;Équipe/Joueur B;Score B;Joueurs en attente")
     archive.history.forEach { round ->
         round.matches.forEach { match ->
             val score = round.scores[match.court]
             val waiting = round.waiting.joinToString(" / ") { it.name }
-            appendLine("${round.number},${match.court},${csvCell(match.teamA.joinToString(" + ") { it.name })},${csvCell(score?.first.orEmpty())},${csvCell(match.teamB.joinToString(" + ") { it.name })},${csvCell(score?.second.orEmpty())},${csvCell(waiting)}")
+            appendLine("${round.number};${match.court};${csvCell(match.teamA.joinToString(" + ") { it.name })};${csvCell(score?.first.orEmpty())};${csvCell(match.teamB.joinToString(" + ") { it.name })};${csvCell(score?.second.orEmpty())};${csvCell(waiting)}")
         }
     }
 }
@@ -1155,12 +1155,36 @@ private fun HistoryPage(
                 Text("Les bilans archivés restent disponibles après la remise à zéro.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(archives.sortedByDescending { it.endedAt }, key = { it.id }) { archive ->
+                var expanded by remember(archive.id) { mutableStateOf(false) }
                 Card(shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Tournoi du ${formatTournamentDate(archive.endedAt)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text("Début : ${formatTournamentDate(archive.startedAt)}", style = MaterialTheme.typography.bodySmall)
                         Text("Fin : ${formatTournamentDate(archive.endedAt)} • ${archive.history.size} tour(s) • ${archive.players.size} joueur(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Classement : " + archive.ranking.take(3).joinToString(" • ") { it.player.name }, style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = { expanded = !expanded }) {
+                            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (expanded) "Masquer le détail" else "Consulter le classement et les matchs")
+                        }
+                        if (expanded) {
+                            Text("Classement final", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            archive.ranking.forEachIndexed { index, ranked ->
+                                Text("${index + 1}. ${ranked.player.name} — ${ranked.wins} victoire(s) — ${ranked.pointDifference.roundToInt()} pts")
+                            }
+                            archive.history.forEach { archivedRound ->
+                                Divider()
+                                Text("Tour ${archivedRound.number}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                archivedRound.matches.forEach { archivedMatch ->
+                                    val archivedScore = archivedRound.scores[archivedMatch.court]
+                                    Text("Terrain ${archivedMatch.court} : ${archivedMatch.teamA.joinToString(" + ") { it.name }} / ${archivedMatch.teamB.joinToString(" + ") { it.name }}")
+                                    Text("Score : ${archivedScore?.first?.ifBlank { "–" } ?: "–"} - ${archivedScore?.second?.ifBlank { "–" } ?: "–"}", style = MaterialTheme.typography.bodySmall)
+                                }
+                                if (archivedRound.waiting.isNotEmpty()) {
+                                    Text("En attente : " + archivedRound.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { onExport(archive, "PDF") }, modifier = Modifier.weight(1f)) {
                                 Icon(Icons.Default.PictureAsPdf, null)
