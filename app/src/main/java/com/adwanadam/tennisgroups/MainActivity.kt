@@ -142,8 +142,15 @@ private fun TennisGroupsApp() {
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
-                            Text("Tennis tournament", fontWeight = FontWeight.Bold)
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val adaptiveTitleSize = (maxWidth.value * 0.09f).coerceIn(11.5f, 18f)
+                            Text(
+                                "Tennis Tournament",
+                                fontSize = adaptiveTitleSize.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     },
                     navigationIcon = {
@@ -184,7 +191,7 @@ private fun TennisGroupsApp() {
                     players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it },
                     courts, { courts = it.coerceIn(1, 20) }, duration, { duration = it.coerceIn(5, 180); remaining = duration * 60 },
                     { val n = entry.trim(); if (n.isNotEmpty() && players.none { it.name.equals(n, true) }) { players.add(Player(Random.nextLong().toString(), n, if (levelEnabled) 2 else null)); entry = "" } },
-                    { editing = it }, { players.remove(it) }, { player, level -> val index = players.indexOfFirst { it.id == player.id }; if (index >= 0) players[index] = players[index].copy(level = level) }, { generateRound() }, Modifier.padding(padding)
+                    { editing = it }, { players.remove(it) }, { generateRound() }, Modifier.padding(padding)
                 )
             }
         }
@@ -204,7 +211,7 @@ private fun PlayersPage(
     tournamentFormat: String, onTournamentFormat: (String) -> Unit,
     levelsEnabled: Boolean, onLevels: (Boolean) -> Unit,
     courts: Int, onCourts: (Int) -> Unit, duration: Int, onDuration: (Int) -> Unit,
-    onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onPlayerLevelChange: (Player, Int) -> Unit, onGenerate: () -> Unit, modifier: Modifier
+    onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onGenerate: () -> Unit, modifier: Modifier
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
@@ -217,19 +224,27 @@ private fun PlayersPage(
             }
         }
         item {
-            Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)) {
-                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("TOURNOI " + tournamentFormat.uppercase(), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge)
-                    Text("Organisez vos rotations simplement.", color = MaterialTheme.colorScheme.onPrimary)
-                }
-            }
-        }
-        item {
             Text("Les joueurs", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(entry, onEntry, Modifier.weight(1f), label = { Text("Prénom ou numéro") }, singleLine = true, shape = RoundedCornerShape(16.dp))
                 FilledIconButton(onClick = onAdd, enabled = entry.isNotBlank(), modifier = Modifier.size(54.dp)) { Icon(Icons.Default.Add, contentDescription = "Ajouter un joueur") }
+            }
+        }
+        item {
+            Card(shape = RoundedCornerShape(20.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Niveau des joueurs",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Switch(levelsEnabled, onLevels)
+                }
             }
         }
         if (players.isNotEmpty()) {
@@ -274,37 +289,6 @@ private fun PlayersPage(
                         Icon(Icons.Default.GroupAdd, null)
                         Spacer(Modifier.width(12.dp))
                         Text(if (tournamentFormat == "Simples") "Ajoutez au moins deux joueurs pour créer votre premier tour." else "Ajoutez au moins quatre joueurs pour créer votre premier tour.")
-                    }
-                }
-            }
-        }
-        item {
-            Card(shape = RoundedCornerShape(20.dp)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Niveau des joueurs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Chaque joueur possède son propre niveau.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(levelsEnabled, onLevels)
-                    }
-                    if (levelsEnabled) {
-                        if (players.isEmpty()) {
-                            Text("Les nouveaux joueurs auront le niveau Intermédiaire par défaut.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        } else {
-                            players.forEach { player ->
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Text(player.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                    LevelSelector(player.level ?: 2) { selected ->
-                                        onPlayerLevelChange(player, selected)
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
