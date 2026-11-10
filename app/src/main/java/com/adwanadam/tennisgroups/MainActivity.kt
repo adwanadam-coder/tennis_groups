@@ -767,7 +767,6 @@ private fun PlayersPage(
     scoreEntryEnabled: Boolean, onScoreEntryEnabled: (Boolean) -> Unit,
     onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onGenerate: () -> Unit, modifier: Modifier
 ) {
-    val language = LocalAppLanguage.current
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -976,6 +975,7 @@ private fun MatchesPage(
     onToggle: () -> Unit, onReset: () -> Unit, onNext: () -> Unit, onFinishTournament: () -> Unit,
     scores: Map<Int, Pair<String, String>>, modifier: Modifier
 ) {
+    val language = LocalAppLanguage.current
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
