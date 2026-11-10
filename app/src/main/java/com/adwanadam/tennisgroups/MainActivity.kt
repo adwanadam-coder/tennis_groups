@@ -553,7 +553,7 @@ private fun MatchScoresDialog(
                                 value = scoreA,
                                 onValueChange = { scoreA = it; enteredScores[match.court] = scoreA to scoreB },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Score équipe A") },
+                                label = { Text(if (tournamentFormat == "Simples") "Score joueur A" else "Score équipe A") },
                                 singleLine = true
                             )
                             Text((if (tournamentFormat == "Simples") "Joueur B : " else "Équipe B : ") + match.teamB.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall)
@@ -561,7 +561,7 @@ private fun MatchScoresDialog(
                                 value = scoreB,
                                 onValueChange = { scoreB = it; enteredScores[match.court] = scoreA to scoreB },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Score équipe B") },
+                                label = { Text(if (tournamentFormat == "Simples") "Score joueur B" else "Score équipe B") },
                                 singleLine = true
                             )
                         }
