@@ -95,7 +95,6 @@ private fun buildIndividualRanking(players: List<Player>, history: List<RoundHis
         PlayerRanking(player, values[0].roundToInt(), values[1], values[2].roundToInt())
     }.sortedWith(compareByDescending<PlayerRanking> { it.wins }
         .thenByDescending { it.pointDifference }
-        .thenByDescending { it.matchesPlayed }
         .thenBy { it.player.name.lowercase() })
 }
 
@@ -156,6 +155,7 @@ private fun TennisGroupsApp() {
         remaining = duration * 60
         running = false
         timerEndHandled = false
+        tournamentFinished = false
         scoreDialogOpen = false
         scoreDialogShown = false
         scoreInputs.clear()
