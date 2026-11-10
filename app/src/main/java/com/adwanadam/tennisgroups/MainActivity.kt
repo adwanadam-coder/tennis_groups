@@ -184,7 +184,7 @@ private fun TennisGroupsApp() {
                     players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it },
                     courts, { courts = it.coerceIn(1, 20) }, duration, { duration = it.coerceIn(5, 180); remaining = duration * 60 },
                     { val n = entry.trim(); if (n.isNotEmpty() && players.none { it.name.equals(n, true) }) { players.add(Player(Random.nextLong().toString(), n, if (levelEnabled) 2 else null)); entry = "" } },
-                    { editing = it }, { players.remove(it) }, { generateRound() }, Modifier.padding(padding)
+                    { editing = it }, { players.remove(it) }, { player, level -> val index = players.indexOfFirst { it.id == player.id }; if (index >= 0) players[index] = players[index].copy(level = level) }, { generateRound() }, Modifier.padding(padding)
                 )
             }
         }
@@ -204,7 +204,7 @@ private fun PlayersPage(
     tournamentFormat: String, onTournamentFormat: (String) -> Unit,
     levelsEnabled: Boolean, onLevels: (Boolean) -> Unit,
     courts: Int, onCourts: (Int) -> Unit, duration: Int, onDuration: (Int) -> Unit,
-    onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onGenerate: () -> Unit, modifier: Modifier
+    onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onPlayerLevelChange: (Player, Int) -> Unit, onGenerate: () -> Unit, modifier: Modifier
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
@@ -300,8 +300,7 @@ private fun PlayersPage(
                                 ) {
                                     Text(player.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                                     LevelSelector(player.level ?: 2) { selected ->
-                                        val index = players.indexOfFirst { it.id == player.id }
-                                        if (index >= 0) players[index] = players[index].copy(level = selected)
+                                        onPlayerLevelChange(player, selected)
                                     }
                                 }
                             }
