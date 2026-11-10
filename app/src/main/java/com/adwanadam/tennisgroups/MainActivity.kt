@@ -162,7 +162,7 @@ private fun TennisGroupsApp() {
                     },
                     actions = {
                         Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.padding(end = 12.dp)) {
-                            Text(players.size.toString() + " joueurs", modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(quantityLabel(players.size, "joueur") , modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                 )
@@ -314,7 +314,7 @@ private fun PlayersPage(
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Organisation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        OrganizationInput("Terrains disponibles", courts, "terrains", { Icon(Icons.Default.SportsTennis, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
+                        OrganizationInput("Terrains disponibles", courts, "terrain", { Icon(Icons.Default.SportsTennis, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
                         OrganizationInput("Durée du match", duration, "min", { Icon(Icons.Default.AccessTime, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onDuration(it.coerceIn(5, 180)) }
                     }
                 }
@@ -329,6 +329,12 @@ private fun PlayersPage(
         }
     }
 }
+
+private fun quantityLabel(count: Int, singular: String): String =
+    "$count ${quantityUnit(count, singular)}"
+
+private fun quantityUnit(count: Int, singular: String): String =
+    if (count == 1) singular else singular + "s"
 
 @Composable
 private fun LevelSelector(selected: Int, onSelected: (Int) -> Unit) {
@@ -367,7 +373,7 @@ private fun OrganizationInput(
             shape = RoundedCornerShape(14.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-            suffix = { Text(unit, style = MaterialTheme.typography.labelSmall) }
+            suffix = { Text(if (unit == "terrain") quantityUnit(value, "terrain") else unit, style = MaterialTheme.typography.labelSmall) }
         )
     }
 }
@@ -412,7 +418,7 @@ private fun MatchesPage(
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Text(if (round == 0) "Matchs" else "Tour " + round, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(if (round == 0) "Les rencontres apparaîtront ici." else matches.size.toString() + (if (matches.size == 1) " terrain en jeu" else " terrains en jeu"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (round == 0) "Les rencontres apparaîtront ici." else quantityLabel(matches.size, "terrain") + " en jeu", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (round == 0) {
             item {
@@ -430,7 +436,7 @@ private fun MatchesPage(
                     Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("CHRONOMÈTRE DU TOUR", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                         Text("%02d:%02d".format(remaining / 60, remaining % 60), fontSize = 48.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Text("Durée prévue : " + duration + " minutes")
+                        Text("Durée prévue : " + quantityLabel(duration, "minute"))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Button(onToggle) {
                                 Icon(if (running) Icons.Default.Pause else Icons.Default.PlayArrow, null)
@@ -471,7 +477,7 @@ private fun MatchesPage(
                         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.HourglassEmpty, null)
                             Spacer(Modifier.width(10.dp))
-                            Text(waiting.size.toString() + (if (waiting.size == 1) " joueur en attente : " else " joueurs en attente : ") + waiting.joinToString(", ") { it.name })
+                            Text(quantityLabel(waiting.size, "joueur") + " en attente : " + waiting.joinToString(", ") { it.name })
                         }
                     }
                 }
@@ -550,7 +556,7 @@ private fun HistoryPage(history: List<RoundHistory>, levelsEnabled: Boolean, mod
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Tour " + item.number, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text(item.matches.size.toString() + (if (item.matches.size == 1) " terrain" else " terrains"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                            Text(quantityLabel(item.matches.size, "terrain"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                         }
                         item.matches.forEach { match ->
                             Text("Terrain " + match.court, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -561,7 +567,7 @@ private fun HistoryPage(history: List<RoundHistory>, levelsEnabled: Boolean, mod
                             }
                             if (match.repeatedGroup) Text("Groupe déjà rencontré", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                         }
-                        if (item.waiting.isNotEmpty()) Text(item.waiting.size.toString() + (if (item.waiting.size == 1) " joueur en attente : " else " joueurs en attente : ") + item.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (item.waiting.isNotEmpty()) Text(quantityLabel(item.waiting.size, "joueur") + " en attente : " + item.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
