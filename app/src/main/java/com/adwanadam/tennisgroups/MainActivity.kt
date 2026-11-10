@@ -368,10 +368,10 @@ private fun shareTournamentReport(context: Context, archive: TournamentArchive, 
         lines.add("" to 0)
         lines.add(translateUiText("HISTORIQUE DES MATCHS", language) to 1)
         archive.history.forEach { round ->
-            lines.add("TOUR ${round.number}" to 1)
+            lines.add((translateUiText("Tour ", language).uppercase(appLocale(language)) + round.number) to 1)
             round.matches.forEach { match ->
                 val score = round.scores[match.court]
-                val scoreText = if (score == null) "Score non renseigné" else "${score.first.ifBlank { "–" }} - ${score.second.ifBlank { "–" }}"
+                val scoreText = if (score == null) translateUiText("Score non renseigné", language) else "${score.first.ifBlank { "–" }} - ${score.second.ifBlank { "–" }}"
                 lines.add("Terrain ${match.court} : ${match.teamA.joinToString(" + ") { it.name }} / ${match.teamB.joinToString(" + ") { it.name }} ($scoreText)" to 0)
             }
             if (round.waiting.isNotEmpty()) lines.add("En attente : ${round.waiting.joinToString(", ") { it.name }}" to 0)
@@ -525,7 +525,7 @@ private fun TennisGroupsApp() {
                                     Text(option.flag, style = MaterialTheme.typography.titleLarge)
                                     Spacer(Modifier.width(12.dp))
                                     Text(option.name, modifier = Modifier.weight(1f), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-                                    if (selected) Icon(Icons.Default.Check, contentDescription = "Sélectionnée", tint = MaterialTheme.colorScheme.primary)
+                                    if (selected) Icon(Icons.Default.Check, contentDescription = translateUiText("Sélectionnée", LocalAppLanguage.current), tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -672,7 +672,7 @@ private fun TennisGroupsApp() {
                     },
                     navigationIcon = {
                         Box {
-                            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.Menu, contentDescription = "Ouvrir le menu") }
+                            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.Menu, contentDescription = translateUiText("Ouvrir le menu", LocalAppLanguage.current)) }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(text = { Text("Joueurs") }, leadingIcon = { Icon(Icons.Default.People, null) }, onClick = { page = "players"; menuOpen = false })
                                 DropdownMenuItem(text = { Text("Matchs") }, leadingIcon = { Icon(Icons.Default.SportsTennis, null) }, onClick = { if (tournamentFinished) tournamentResetDialogOpen = true else page = "matches"; menuOpen = false })
@@ -760,7 +760,7 @@ private fun PlayersPage(
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(entry, onEntry, Modifier.weight(1f), label = { Text("Prénom ou numéro") }, singleLine = true, shape = RoundedCornerShape(16.dp))
-                FilledIconButton(onClick = onAdd, enabled = entry.isNotBlank(), modifier = Modifier.size(54.dp)) { Icon(Icons.Default.Add, contentDescription = "Ajouter un joueur") }
+                FilledIconButton(onClick = onAdd, enabled = entry.isNotBlank(), modifier = Modifier.size(54.dp)) { Icon(Icons.Default.Add, contentDescription = translateUiText("Ajouter un joueur", LocalAppLanguage.current)) }
             }
         }
         item {
@@ -809,8 +809,8 @@ private fun PlayersPage(
                                 }
                             }
                         }
-                        IconButton(onClick = { onEdit(player) }) { Icon(Icons.Default.Edit, contentDescription = "Modifier " + player.name) }
-                        IconButton(onClick = { onRemove(player) }) { Icon(Icons.Default.Close, contentDescription = "Supprimer " + player.name) }
+                        IconButton(onClick = { onEdit(player) }) { Icon(Icons.Default.Edit, contentDescription = translateUiText("Modifier ", LocalAppLanguage.current) + player.name) }
+                        IconButton(onClick = { onRemove(player) }) { Icon(Icons.Default.Close, contentDescription = translateUiText("Supprimer ", LocalAppLanguage.current) + player.name) }
                     }
                 }
             }
@@ -919,9 +919,9 @@ private fun OrganizationInput(
 private fun SettingStepper(label: String, value: Int, unit: String, min: Int, max: Int, onChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.weight(1f))
-        IconButton(onClick = { onChange(value - 1) }, enabled = value > min) { Icon(Icons.Default.Remove, contentDescription = "Diminuer " + label) }
+        IconButton(onClick = { onChange(value - 1) }, enabled = value > min) { Icon(Icons.Default.Remove, contentDescription = translateUiText("Diminuer ", LocalAppLanguage.current) + label) }
         Text(value.toString() + " " + unit, modifier = Modifier.widthIn(min = 74.dp), fontWeight = FontWeight.Bold)
-        IconButton(onClick = { onChange(value + 1) }, enabled = value < max) { Icon(Icons.Default.Add, contentDescription = "Augmenter " + label) }
+        IconButton(onClick = { onChange(value + 1) }, enabled = value < max) { Icon(Icons.Default.Add, contentDescription = translateUiText("Augmenter ", LocalAppLanguage.current) + label) }
     }
 }
 
@@ -1290,7 +1290,7 @@ private fun HistoryPage(
                                 Text("CSV")
                             }
                             IconButton(onClick = { onDeleteArchive(archive) }) {
-                                Icon(Icons.Default.DeleteOutline, contentDescription = "Supprimer l'archive", tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Default.DeleteOutline, contentDescription = translateUiText("Supprimer l'archive", LocalAppLanguage.current), tint = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
