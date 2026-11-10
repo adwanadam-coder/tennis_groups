@@ -63,9 +63,10 @@ private fun Text(
     fontWeight: FontWeight? = null,
     maxLines: Int = Int.MAX_VALUE,
     softWrap: Boolean = true,
+    translate: Boolean = true,
     style: androidx.compose.ui.text.TextStyle = LocalTextStyle.current
 ) {
-    MaterialText(text = translateUiText(text, LocalAppLanguage.current), modifier = modifier, color = color, fontSize = fontSize, fontWeight = fontWeight, maxLines = maxLines, softWrap = softWrap, style = style)
+    MaterialText(text = if (translate) translateUiText(text, LocalAppLanguage.current) else text, modifier = modifier, color = color, fontSize = fontSize, fontWeight = fontWeight, maxLines = maxLines, softWrap = softWrap, style = style)
 }
 
 
@@ -393,9 +394,9 @@ private fun shareTournamentReport(context: Context, archive: TournamentArchive, 
             round.matches.forEach { match ->
                 val score = round.scores[match.court]
                 val scoreText = if (score == null) translateUiText("Score non renseigné", language) else "${score.first.ifBlank { "–" }} - ${score.second.ifBlank { "–" }}"
-                lines.add(translateUiText("Terrain ${match.court} : ${match.teamA.joinToString(" + ") { it.name }} / ${match.teamB.joinToString(" + ") { it.name }} ($scoreText)", language) to 0)
+                lines.add((translateUiText("Terrain ${match.court} : ", language) + match.teamA.joinToString(" + ") { it.name } + " / " + match.teamB.joinToString(" + ") { it.name } + " ($scoreText)") to 0)
             }
-            if (round.waiting.isNotEmpty()) lines.add(translateUiText("En attente : ${round.waiting.joinToString(", ") { it.name }}", language) to 0)
+            if (round.waiting.isNotEmpty()) lines.add(translateUiText("En attente : ", language) + round.waiting.joinToString(", ") { it.name } to 0)
         }
         var pageNumber = 1
         var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
@@ -816,7 +817,7 @@ private fun PlayersPage(
                         }
                         Column(Modifier.weight(1f).padding(horizontal = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(player.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(player.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, translate = false)
                                 if (levelsEnabled) {
                                     val levelColor = when (player.level) {
                                         1 -> Color(0xFF287A50)
@@ -1051,7 +1052,7 @@ private fun MatchesPage(
                         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.HourglassEmpty, null)
                             Spacer(Modifier.width(10.dp))
-                            Text(quantityLabel(waiting.size, "joueur") + " en attente : " + waiting.joinToString(", ") { it.name })
+                            Text(translateUiText(quantityLabel(waiting.size, "joueur"), language) + translateUiText(" en attente : ", language) + waiting.joinToString(", ") { it.name }, translate = false)
                         }
                     }
                 }
@@ -1125,7 +1126,7 @@ private fun TeamPlayerColumn(title: String, players: List<Player>, modifier: Mod
         players.forEach { player ->
             Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(player.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(player.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer, translate = false)
                     if (levelsEnabled && player.level != null) Text(levels[player.level] ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
@@ -1175,7 +1176,7 @@ private fun RankingTable(ranking: List<PlayerRanking>, modifier: Modifier = Modi
         ranking.forEachIndexed { index, item ->
             Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(rankingPosition(ranking, index).toString(), Modifier.width(42.dp), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                Text(item.player.name, Modifier.width(112.dp), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(item.player.name, Modifier.width(112.dp), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, maxLines = 1, translate = false)
                 Text(item.matchesPlayed.toString(), Modifier.width(52.dp), style = MaterialTheme.typography.bodySmall)
                 Text(item.wins.toString(), Modifier.width(34.dp), style = MaterialTheme.typography.bodySmall)
                 Text(item.rests.toString(), Modifier.width(48.dp), style = MaterialTheme.typography.bodySmall)
@@ -1260,7 +1261,7 @@ private fun HistoryPage(
                                 Text("Score : ${score.first.ifBlank { "–" }}  –  ${score.second.ifBlank { "–" }}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                             }
                         }
-                        if (item.waiting.isNotEmpty()) Text(quantityLabel(item.waiting.size, "joueur") + " en attente : " + item.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (item.waiting.isNotEmpty()) Text(translateUiText(quantityLabel(item.waiting.size, "joueur"), language) + translateUiText(" en attente : ", language) + item.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, translate = false)
                     }
                 }
             }
@@ -1277,7 +1278,7 @@ private fun HistoryPage(
                         Text("Tournoi du ${formatTournamentDate(archive.endedAt, language)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text("Début : ${formatTournamentDate(archive.startedAt, language)}", style = MaterialTheme.typography.bodySmall)
                         Text("Fin : ${formatTournamentDate(archive.endedAt, language)} • ${archive.history.size} tour(s) • ${archive.players.size} joueur(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Classement : " + archive.ranking.take(3).joinToString(" • ") { it.player.name }, style = MaterialTheme.typography.bodySmall)
+                        Text(translateUiText("Classement : ", language) + archive.ranking.take(3).joinToString(" • ") { it.player.name }, style = MaterialTheme.typography.bodySmall, translate = false)
                         TextButton(onClick = { expanded = !expanded }) {
                             Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
                             Spacer(Modifier.width(4.dp))
@@ -1291,11 +1292,11 @@ private fun HistoryPage(
                                 Text("Tour ${archivedRound.number}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                 archivedRound.matches.forEach { archivedMatch ->
                                     val archivedScore = archivedRound.scores[archivedMatch.court]
-                                    Text("Terrain ${archivedMatch.court} : ${archivedMatch.teamA.joinToString(" + ") { it.name }} / ${archivedMatch.teamB.joinToString(" + ") { it.name }}")
+                                    Text(translateUiText("Terrain ${archivedMatch.court} : ", language) + archivedMatch.teamA.joinToString(" + ") { it.name } + " / " + archivedMatch.teamB.joinToString(" + ") { it.name }, translate = false)
                                     Text("Score : ${archivedScore?.first?.ifBlank { "–" } ?: "–"} - ${archivedScore?.second?.ifBlank { "–" } ?: "–"}", style = MaterialTheme.typography.bodySmall)
                                 }
                                 if (archivedRound.waiting.isNotEmpty()) {
-                                    Text("En attente : " + archivedRound.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall)
+                                    Text(translateUiText("En attente : ", language) + archivedRound.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, translate = false)
                                 }
                             }
                         }
@@ -1325,7 +1326,7 @@ private fun HistoryPage(
 private fun HistoryTeam(players: List<Player>, levelsEnabled: Boolean, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         players.forEach { player ->
-            Text(player.name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+            Text(player.name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, translate = false)
             if (levelsEnabled && player.level != null) Text(levels[player.level] ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
