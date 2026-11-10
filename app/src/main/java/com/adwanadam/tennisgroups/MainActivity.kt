@@ -700,7 +700,7 @@ private fun TennisGroupsApp() {
                                 DropdownMenuItem(text = { Text("Matchs") }, leadingIcon = { Icon(Icons.Default.SportsTennis, null) }, onClick = { if (tournamentFinished) tournamentResetDialogOpen = true else page = "matches"; menuOpen = false })
                                 DropdownMenuItem(text = { Text("Historique") }, leadingIcon = { Icon(Icons.Default.History, null) }, onClick = { page = "history"; menuOpen = false })
                                 HorizontalDivider()
-                                DropdownMenuItem(text = { Text("Payer moi un café") }, leadingIcon = { Icon(Icons.Default.Coffee, null) }, onClick = { menuOpen = false; uriHandler.openUri("https://ko-fi.com/ada7875") })
+                                DropdownMenuItem(text = { Text("Offrez-moi un café") }, leadingIcon = { Icon(Icons.Default.Coffee, null) }, onClick = { menuOpen = false; uriHandler.openUri("https://ko-fi.com/ada7875") })
                                 DropdownMenuItem(text = { Text("Langue : " + (languages.firstOrNull { it.name == language }?.flag ?: "🌐") + " " + language) }, leadingIcon = { Icon(Icons.Default.Language, null) }, onClick = { languageOpen = true; menuOpen = false })
                                 DropdownMenuItem(text = { Text("À propos") }, leadingIcon = { Icon(Icons.Default.Info, null) }, onClick = { page = "about"; menuOpen = false })
                             }
@@ -767,6 +767,7 @@ private fun PlayersPage(
     scoreEntryEnabled: Boolean, onScoreEntryEnabled: (Boolean) -> Unit,
     onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onGenerate: () -> Unit, modifier: Modifier
 ) {
+    val language = LocalAppLanguage.current
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -885,7 +886,7 @@ private fun quantityUnit(count: Int, singular: String): String =
 private fun LevelSelector(selected: Int, onSelected: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         levels.forEach { (value, label) ->
-            FilterChip(selected == value, { onSelected(value) }, label = { Text(label, maxLines = 1) }, modifier = Modifier.weight(1f))
+            FilterChip(selected == value, { onSelected(value) }, label = { Text(label, fontSize = 11.sp, maxLines = 1) }, modifier = Modifier.weight(1f))
         }
     }
 }
