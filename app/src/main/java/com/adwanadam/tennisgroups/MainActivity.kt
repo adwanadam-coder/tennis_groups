@@ -342,6 +342,26 @@ private fun loadTournamentArchives(context: Context): List<TournamentArchive> {
     }.getOrElse { emptyList() }
 }
 
+private fun rankingPdfLine(item: PlayerRanking, position: Int, language: String): String {
+    val percent = (item.winRate * 100).roundToInt()
+    val points = item.pointsWon.roundToInt()
+    val diff = (if (item.pointDifference > 0) "+" else "") + item.pointDifference.roundToInt()
+    return when (language) {
+        "English" -> "$position. ${item.player.name} — $percent% wins — ${item.wins}/${item.matchesPlayed} matches — ${item.rests} rests — $points points won — diff. $diff"
+        "Español" -> "$position. ${item.player.name} — $percent% victorias — ${item.wins}/${item.matchesPlayed} partidos — ${item.rests} descansos — $points puntos ganados — dif. $diff"
+        "Italiano" -> "$position. ${item.player.name} — $percent% vittorie — ${item.wins}/${item.matchesPlayed} partite — ${item.rests} riposi — $points punti vinti — diff. $diff"
+        "Português" -> "$position. ${item.player.name} — $percent% vitórias — ${item.wins}/${item.matchesPlayed} jogos — ${item.rests} descansos — $points pontos ganhos — dif. $diff"
+        "Deutsch" -> "$position. ${item.player.name} — $percent% Siege — ${item.wins}/${item.matchesPlayed} Spiele — ${item.rests} Pausen — $points Punkte — Diff. $diff"
+        "中文（简体）" -> "$position. ${item.player.name} — 胜率 $percent% — ${item.wins}/${item.matchesPlayed} 场胜利 — 休息 ${item.rests} 次 — 得分 $points — 净胜分 $diff"
+        "日本語" -> "$position. ${item.player.name} — 勝率 $percent% — ${item.wins}/${item.matchesPlayed} 勝 — 休憩 ${item.rests} 回 — 獲得ポイント $points — 得失点差 $diff"
+        "हिन्दी" -> "$position. ${item.player.name} — जीत $percent% — ${item.wins}/${item.matchesPlayed} मैच — आराम ${item.rests} — जीते अंक $points — अंतर $diff"
+        "Nederlands" -> "$position. ${item.player.name} — $percent% winst — ${item.wins}/${item.matchesPlayed} wedstrijden — ${item.rests} rust — $points punten voor — verschil $diff"
+        "Русский" -> "$position. ${item.player.name} — победы $percent% — ${item.wins}/${item.matchesPlayed} матчей — отдых ${item.rests} — очки $points — разница $diff"
+        "Čeština" -> "$position. ${item.player.name} — výhry $percent% — ${item.wins}/${item.matchesPlayed} zápasů — volno ${item.rests} — body $points — rozdíl $diff"
+        "Српски" -> "$position. ${item.player.name} — pobede $percent% — ${item.wins}/${item.matchesPlayed} mečeva — odmor ${item.rests} — poeni $points — razlika $diff"
+        else -> "$position. ${item.player.name} — $percent % victoires — ${item.wins}/${item.matchesPlayed} matchs — ${item.rests} repos — $points pts gagnés — diff. $diff"
+    }
+}
 private fun shareTournamentReport(context: Context, archive: TournamentArchive, format: String, language: String) {
     val reportsDir = File(context.cacheDir, "tournament_reports").apply { mkdirs() }
     val stamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date(archive.endedAt))
@@ -363,7 +383,7 @@ private fun shareTournamentReport(context: Context, archive: TournamentArchive, 
         lines.add("" to 0)
         lines.add(translateUiText("CLASSEMENT FINAL", language) to 1)
         archive.ranking.forEachIndexed { index, item ->
-            lines.add("${rankingPosition(archive.ranking, index)}. ${item.player.name} — ${(item.winRate * 100).roundToInt()} % victoires — ${item.wins}/${item.matchesPlayed} matchs — ${item.rests} repos — ${item.pointsWon.roundToInt()} pts gagnés — diff. ${if (item.pointDifference > 0) "+" else ""}${item.pointDifference.roundToInt()}" to 0)
+            lines.add(rankingPdfLine(item, rankingPosition(archive.ranking, index), language) to 0)
         }
         lines.add("" to 0)
         lines.add(translateUiText("HISTORIQUE DES MATCHS", language) to 1)
