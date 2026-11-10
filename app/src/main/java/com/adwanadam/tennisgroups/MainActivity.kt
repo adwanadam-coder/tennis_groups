@@ -172,16 +172,31 @@ private fun rankingPosition(ranking: List<PlayerRanking>, index: Int): Int {
         current.matchesPlayed == previous.matchesPlayed
     return if (tied) rankingPosition(ranking, index - 1) else index + 1
 }
-private fun formatTournamentDate(timestamp: Long): String =
-    SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
+private fun appLocale(language: String): Locale = when (language) {
+    "English" -> Locale.ENGLISH
+    "Español" -> Locale("es")
+    "Italiano" -> Locale.ITALIAN
+    "Português" -> Locale("pt")
+    "Deutsch" -> Locale.GERMAN
+    "中文（简体）" -> Locale.SIMPLIFIED_CHINESE
+    "日本語" -> Locale.JAPANESE
+    "हिन्दी" -> Locale("hi")
+    "Nederlands" -> Locale("nl")
+    "Русский" -> Locale("ru")
+    "Čeština" -> Locale("cs")
+    "Српски" -> Locale("sr")
+    else -> Locale.FRENCH
+}
+private fun formatTournamentDate(timestamp: Long, language: String = "Français"): String =
+    SimpleDateFormat("dd/MM/yyyy HH:mm:ss", appLocale(language)).format(Date(timestamp))
 
 private fun csvCell(value: String): String = "\"" + value.replace("\"", "\"\"") + "\""
 
-private fun tournamentCsv(archive: TournamentArchive): String = buildString {
+private fun tournamentCsv(archive: TournamentArchive, language: String): String = buildString {
     appendLine("BILAN DU TOURNOI")
     appendLine("Format;${csvCell(archive.format)}")
-    appendLine("Début;${csvCell(formatTournamentDate(archive.startedAt))}")
-    appendLine("Fin;${csvCell(formatTournamentDate(archive.endedAt))}")
+    appendLine("Début;${csvCell(formatTournamentDate(archive.startedAt, language))}")
+    appendLine("Fin;${csvCell(formatTournamentDate(archive.endedAt, language))}")
     appendLine()
     appendLine("CLASSEMENT FINAL")
     appendLine("Rang;Joueur;Matchs joués;Victoires;Repos;Points gagnés;Différence de points;Pourcentage de victoires")
@@ -327,12 +342,12 @@ private fun loadTournamentArchives(context: Context): List<TournamentArchive> {
     }.getOrElse { emptyList() }
 }
 
-private fun shareTournamentReport(context: Context, archive: TournamentArchive, format: String) {
+private fun shareTournamentReport(context: Context, archive: TournamentArchive, format: String, language: String) {
     val reportsDir = File(context.cacheDir, "tournament_reports").apply { mkdirs() }
     val stamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date(archive.endedAt))
     val file = if (format == "CSV") File(reportsDir, "tournoi_${stamp}.csv") else File(reportsDir, "tournoi_${stamp}.pdf")
     if (format == "CSV") {
-        file.writeText("\uFEFF" + tournamentCsv(archive), Charsets.UTF_8)
+        file.writeText("\uFEFF" + tournamentCsv(archive, language), Charsets.UTF_8)
     } else {
         val document = PdfDocument()
         val pageWidth = 595
@@ -402,10 +417,10 @@ private fun shareTournamentReport(context: Context, archive: TournamentArchive, 
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
         type = mimeType
         putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_SUBJECT, "Bilan du tournoi de tennis")
+        putExtra(Intent.EXTRA_SUBJECT, translateUiText("Bilan du tournoi de tennis", language))
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(sendIntent, "Partager le bilan du tournoi"))
+    context.startActivity(Intent.createChooser(sendIntent, translateUiText("Partager le bilan du tournoi", language)))
 }
 
 
@@ -697,7 +712,7 @@ private fun TennisGroupsApp() {
                 "history" -> HistoryPage(
                     history.toList(), players.toList(), levelEnabled, tournamentFinished,
                     tournamentArchives.toList(),
-                    onExport = { archive, format -> shareTournamentReport(context, archive, format) },
+                    onExport = { archive, format -> shareTournamentReport(context, archive, format, language) },
                     onDeleteArchive = { archiveToDelete = it },
                     modifier = Modifier.padding(padding)
                 )
@@ -1161,6 +1176,7 @@ private fun HistoryPage(
     onDeleteArchive: (TournamentArchive) -> Unit,
     modifier: Modifier
 ) {
+    val language = LocalAppLanguage.current
     val ranking = remember(history, players) { buildIndividualRanking(players, history) }
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
