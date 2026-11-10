@@ -36,7 +36,7 @@ private val languages = listOf(
     AppLanguage("Српски", "🇷🇸")
 )
 private val levels = mapOf(1 to "Débutant", 2 to "Intermédiaire", 3 to "Avancé")
-private data class RoundHistory(val number: Int, val matches: List<DoublesMatch>, val waiting: List<Player>)
+private data class RoundHistory(val number: Int, val matches: List<DoublesMatch>, val waiting: List<Player>, val scores: Map<Int, Pair<String, String>> = emptyMap())
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +57,10 @@ private fun TennisGroupsApp() {
     var levelEnabled by remember { mutableStateOf(false) }
     var courts by remember { mutableIntStateOf(2) }
     var duration by remember { mutableIntStateOf(20) }
+    var scoreEntryEnabled by remember { mutableStateOf(false) }
+    var scoreDialogOpen by remember { mutableStateOf(false) }
+    var scoreDialogShown by remember { mutableStateOf(false) }
+    val scoreInputs = remember { mutableStateMapOf<Int, Pair<String, String>>() }
     var language by remember { mutableStateOf("Français") }
     var menuOpen by remember { mutableStateOf(false) }
     var languageOpen by remember { mutableStateOf(false) }
@@ -87,6 +91,9 @@ private fun TennisGroupsApp() {
         round += 1
         remaining = duration * 60
         running = false
+        scoreDialogOpen = false
+        scoreDialogShown = false
+        scoreInputs.clear()
         history.add(RoundHistory(round, matches, waiting))
         page = "matches"
     }
@@ -134,7 +141,28 @@ private fun TennisGroupsApp() {
                 delay(1000)
                 remaining -= 1
             }
-            if (remaining == 0) running = false
+            if (remaining == 0) {
+                running = false
+                if (scoreEntryEnabled && matches.isNotEmpty() && !scoreDialogShown) {
+                    scoreDialogShown = true
+                    scoreDialogOpen = true
+                }
+            }
+        }
+
+        if (scoreDialogOpen) {
+            MatchScoresDialog(
+                matches = matches,
+                tournamentFormat = tournamentFormat,
+                initialScores = scoreInputs.toMap(),
+                onSave = { enteredScores ->
+                    scoreInputs.clear()
+                    scoreInputs.putAll(enteredScores)
+                    if (history.isNotEmpty()) history[history.lastIndex] = history.last().copy(scores = enteredScores)
+                    scoreDialogOpen = false
+                },
+                onSkip = { scoreDialogOpen = false }
+            )
         }
 
         Scaffold(
@@ -184,12 +212,17 @@ private fun TennisGroupsApp() {
         ) { padding ->
             when (page) {
                 "matches" -> MatchesPage(round, matches, waiting, warning, remaining, running, duration, levelEnabled, players.size, tournamentFormat,
-                    { running = !running }, { running = false; remaining = duration * 60 }, { if (players.size >= (if (tournamentFormat == "Simples") 2 else 4)) generateRound() }, Modifier.padding(padding))
+                    { running = !running }, {
+                        running = false
+                        remaining = duration * 60
+                        scoreDialogOpen = false
+                        scoreDialogShown = false
+                    }, { if (players.size >= (if (tournamentFormat == "Simples") 2 else 4)) generateRound() }, scoreInputs.toMap(), Modifier.padding(padding))
                 "history" -> HistoryPage(history.toList(), levelEnabled, Modifier.padding(padding))
                 "about" -> AboutPage(Modifier.padding(padding))
                 else -> PlayersPage(
                     players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it },
-                    courts, { courts = it.coerceIn(1, 20) }, duration, { duration = it.coerceIn(5, 180); remaining = duration * 60 },
+                    courts, { courts = it.coerceIn(1, 20) }, duration, { duration = it.coerceIn(1, 99); remaining = duration * 60 }, scoreEntryEnabled, { scoreEntryEnabled = it },
                     { val n = entry.trim(); if (n.isNotEmpty() && players.none { it.name.equals(n, true) }) { players.add(Player(Random.nextLong().toString(), n, if (levelEnabled) 2 else null)); entry = "" } },
                     { editing = it }, { players.remove(it) }, { generateRound() }, Modifier.padding(padding)
                 )
@@ -211,6 +244,7 @@ private fun PlayersPage(
     tournamentFormat: String, onTournamentFormat: (String) -> Unit,
     levelsEnabled: Boolean, onLevels: (Boolean) -> Unit,
     courts: Int, onCourts: (Int) -> Unit, duration: Int, onDuration: (Int) -> Unit,
+    scoreEntryEnabled: Boolean, onScoreEntryEnabled: (Boolean) -> Unit,
     onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onGenerate: () -> Unit, modifier: Modifier
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -299,7 +333,14 @@ private fun PlayersPage(
                     Text("Organisation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         OrganizationInput("Terrains disponibles", courts, "terrain", { Icon(Icons.Default.SportsTennis, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onCourts(it.coerceIn(1, 20)) }
-                        OrganizationInput("Durée du match", duration, "min", { Icon(Icons.Default.AccessTime, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onDuration(it.coerceIn(5, 180)) }
+                        OrganizationInput("Durée du match", duration, "min", { Icon(Icons.Default.AccessTime, null, tint = MaterialTheme.colorScheme.primary) }, Modifier.weight(1f)) { onDuration(it.coerceIn(1, 99)) }
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Renseignement des scores", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text("Saisir les résultats à la fin de chaque tour", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = scoreEntryEnabled, onCheckedChange = onScoreEntryEnabled)
                     }
                 }
             }
@@ -348,7 +389,8 @@ private fun OrganizationInput(
         OutlinedTextField(
             value = textValue,
             onValueChange = { raw ->
-                val digits = raw.filter(Char::isDigit).take(3)
+                val maxDigits = if (unit == "min") 2 else 3
+                val digits = raw.filter(Char::isDigit).take(maxDigits)
                 textValue = digits
                 digits.toIntOrNull()?.let(onValueChange)
             },
@@ -397,7 +439,8 @@ private fun EditPlayerDialog(player: Player, levelsEnabled: Boolean, onDismiss: 
 private fun MatchesPage(
     round: Int, matches: List<DoublesMatch>, waiting: List<Player>, warning: Boolean,
     remaining: Int, running: Boolean, duration: Int, levelsEnabled: Boolean, playerCount: Int, tournamentFormat: String,
-    onToggle: () -> Unit, onReset: () -> Unit, onNext: () -> Unit, modifier: Modifier
+    onToggle: () -> Unit, onReset: () -> Unit, onNext: () -> Unit,
+    scores: Map<Int, Pair<String, String>>, modifier: Modifier
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
@@ -430,7 +473,7 @@ private fun MatchesPage(
                             OutlinedButton(onReset) {
                                 Icon(Icons.Default.Refresh, null)
                                 Spacer(Modifier.width(6.dp))
-                                Text("Réinitialiser")
+                                Text("Réinitialiser", fontSize = MaterialTheme.typography.labelMedium.fontSize, maxLines = 1, softWrap = false)
                             }
                         }
                     }
@@ -452,6 +495,9 @@ private fun MatchesPage(
                             TeamPlayerColumn(if (tournamentFormat == "Simples") "JOUEUR B" else "ÉQUIPE B", match.teamB, Modifier.weight(1f), levelsEnabled)
                         }
                         if (match.repeatedGroup) Text("Groupe déjà rencontré", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                        scores[match.court]?.let { score ->
+                            Text("Score : ${score.first.ifBlank { "–" }}  –  ${score.second.ifBlank { "–" }}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             }
@@ -475,6 +521,57 @@ private fun MatchesPage(
             }
         }
     }
+}
+
+@Composable
+private fun MatchScoresDialog(
+    matches: List<DoublesMatch>,
+    tournamentFormat: String,
+    initialScores: Map<Int, Pair<String, String>>,
+    onSave: (Map<Int, Pair<String, String>>) -> Unit,
+    onSkip: () -> Unit
+) {
+    val enteredScores = remember(matches) {
+        mutableStateMapOf<Int, Pair<String, String>>().apply { putAll(initialScores) }
+    }
+    AlertDialog(
+        onDismissRequest = onSkip,
+        title = { Text("Résultats du tour", fontWeight = FontWeight.Bold) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 440.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(matches, key = { it.court }) { match ->
+                    var scoreA by remember(match.court) { mutableStateOf(enteredScores[match.court]?.first.orEmpty()) }
+                    var scoreB by remember(match.court) { mutableStateOf(enteredScores[match.court]?.second.orEmpty()) }
+                    Card(shape = RoundedCornerShape(16.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Terrain ${match.court}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text((if (tournamentFormat == "Simples") "Joueur A : " else "Équipe A : ") + match.teamA.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = scoreA,
+                                onValueChange = { scoreA = it; enteredScores[match.court] = scoreA to scoreB },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Score équipe A") },
+                                singleLine = true
+                            )
+                            Text((if (tournamentFormat == "Simples") "Joueur B : " else "Équipe B : ") + match.teamB.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = scoreB,
+                                onValueChange = { scoreB = it; enteredScores[match.court] = scoreA to scoreB },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Score équipe B") },
+                                singleLine = true
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(enteredScores.toMap()) }) { Text("Enregistrer") } },
+        dismissButton = { TextButton(onClick = onSkip) { Text("Ignorer") } }
+    )
 }
 
 @Composable
@@ -550,6 +647,9 @@ private fun HistoryPage(history: List<RoundHistory>, levelsEnabled: Boolean, mod
                                 HistoryTeam(match.teamB, levelsEnabled, Modifier.weight(1f))
                             }
                             if (match.repeatedGroup) Text("Groupe déjà rencontré", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                            item.scores[match.court]?.let { score ->
+                                Text("Score : ${score.first.ifBlank { "–" }}  –  ${score.second.ifBlank { "–" }}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                            }
                         }
                         if (item.waiting.isNotEmpty()) Text(quantityLabel(item.waiting.size, "joueur") + " en attente : " + item.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
