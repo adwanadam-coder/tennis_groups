@@ -850,7 +850,15 @@ internal fun translateUiText(source: String, language: String): String {
         arrayOf("joueur(s)", "player(s)", "jugador(es)", "giocatore(i)", "jogador(es)", "Spieler", "名球员", "人", "खिलाड़ी", "speler(s)", "игрок(ов)", "hráč(i)", "igrač(a)")
     )
     val finalTranslation = finalRows.firstOrNull { it[0] == source }?.get(when (language) { "English" -> 1; "Español" -> 2; "Italiano" -> 3; "Português" -> 4; "Deutsch" -> 5; "中文（简体）" -> 6; "日本語" -> 7; "हिन्दी" -> 8; "Nederlands" -> 9; "Русский" -> 10; "Čeština" -> 11; "Српски" -> 12; else -> 0 })
-    val exact = translations[language]?.get(source) ?: supplemental ?: extended ?: finalTranslation
+    val accessibilityRows = listOf(
+        arrayOf("Ajouter un joueur", "Add player", "Añadir jugador", "Aggiungi giocatore", "Adicionar jogador", "Spieler hinzufügen", "添加球员", "プレーヤーを追加", "खिलाड़ी जोड़ें", "Speler toevoegen", "Добавить игрока", "Přidat hráče", "Dodaj igrača"),
+        arrayOf("Diminuer ", "Decrease ", "Disminuir ", "Diminuisci ", "Diminuir ", "Verringern ", "减少", "減らす", "कम करें ", "Verlaag ", "Уменьшить ", "Snížit ", "Smanji "),
+        arrayOf("Augmenter ", "Increase ", "Aumentar ", "Aumenta ", "Aumentar ", "Erhöhen ", "增加", "増やす", "बढ़ाएँ ", "Verhoog ", "Увеличить ", "Zvýšit ", "Povećaj "),
+        arrayOf("Supprimer l'archive", "Delete archive", "Eliminar archivo", "Elimina archivio", "Eliminar arquivo", "Archiv löschen", "删除存档", "アーカイブを削除", "संग्रह हटाएँ", "Archief verwijderen", "Удалить архив", "Smazat archiv", "Obriši arhivu"),
+        arrayOf("Score non renseigné", "Score not entered", "Resultado no indicado", "Punteggio non inserito", "Resultado não indicado", "Ergebnis nicht eingetragen", "未填写比分", "スコア未入力", "स्कोर दर्ज नहीं किया गया", "Score niet ingevuld", "Счёт не указан", "Skóre nebylo zadáno", "Rezultat nije unet")
+    )
+    val accessibility = accessibilityRows.firstOrNull { it[0] == source }?.get(when (language) { "English" -> 1; "Español" -> 2; "Italiano" -> 3; "Português" -> 4; "Deutsch" -> 5; "中文（简体）" -> 6; "日本語" -> 7; "हिन्दी" -> 8; "Nederlands" -> 9; "Русский" -> 10; "Čeština" -> 11; "Српски" -> 12; else -> 0 })
+    val exact = translations[language]?.get(source) ?: supplemental ?: extended ?: finalTranslation ?: accessibility
     if (exact != null) return exact
     val dynamicPrefixes = mapOf(
         "Terrain " to mapOf("English" to "Court ", "Español" to "Pista ", "Italiano" to "Campo ", "Português" to "Campo ", "Deutsch" to "Platz ", "中文（简体）" to "球场 ", "日本語" to "コート ", "हिन्दी" to "कोर्ट ", "Nederlands" to "Baan ", "Русский" to "Корт ", "Čeština" to "Kurt ", "Српски" to "Терен "),
@@ -866,6 +874,10 @@ internal fun translateUiText(source: String, language: String): String {
         "Format : " to mapOf("English" to "Format: ", "Español" to "Formato: ", "Italiano" to "Formato: ", "Português" to "Formato: ", "Deutsch" to "Format: ", "中文（简体）" to "形式：", "日本語" to "形式：", "हिन्दी" to "प्रारूप: ", "Nederlands" to "Vorm: ", "Русский" to "Формат: ", "Čeština" to "Formát: ", "Српски" to "Format: "),
         "Langue : " to mapOf("English" to "Language: ", "Español" to "Idioma: ", "Italiano" to "Lingua: ", "Português" to "Idioma: ", "Deutsch" to "Sprache: ", "中文（简体）" to "语言：", "日本語" to "言語：", "हिन्दी" to "भाषा: ", "Nederlands" to "Taal: ", "Русский" to "Язык: ", "Čeština" to "Jazyk: ", "Српски" to "Jezik: "),
         "Classement : " to mapOf("English" to "Ranking: ", "Español" to "Clasificación: ", "Italiano" to "Classifica: ", "Português" to "Classificação: ", "Deutsch" to "Rangliste: ", "中文（简体）" to "排名：", "日本語" to "ランキング：", "हिन्दी" to "रैंकिंग: ", "Nederlands" to "Ranglijst: ", "Русский" to "Рейтинг: ", "Čeština" to "Pořadí: ", "Српски" to "Rang-lista: "),
+        "Modifier " to mapOf("English" to "Edit ", "Español" to "Editar ", "Italiano" to "Modifica ", "Português" to "Editar ", "Deutsch" to "Bearbeiten ", "中文（简体）" to "编辑", "日本語" to "編集", "हिन्दी" to "संपादित करें ", "Nederlands" to "Bewerk ", "Русский" to "Изменить ", "Čeština" to "Upravit ", "Српски" to "Izmeni "),
+        "Supprimer " to mapOf("English" to "Remove ", "Español" to "Eliminar ", "Italiano" to "Rimuovi ", "Português" to "Remover ", "Deutsch" to "Entfernen ", "中文（简体）" to "删除", "日本語" to "削除", "हिन्दी" to "हटाएँ ", "Nederlands" to "Verwijder ", "Русский" to "Удалить ", "Čeština" to "Odstranit ", "Српски" to "Obriši "),
+        "Diminuer " to mapOf("English" to "Decrease ", "Español" to "Disminuir ", "Italiano" to "Diminuisci ", "Português" to "Diminuir ", "Deutsch" to "Verringern ", "中文（简体）" to "减少", "日本語" to "減らす", "हिन्दी" to "कम करें ", "Nederlands" to "Verlaag ", "Русский" to "Уменьшить ", "Čeština" to "Snížit ", "Српски" to "Smanji "),
+        "Augmenter " to mapOf("English" to "Increase ", "Español" to "Aumentar ", "Italiano" to "Aumenta ", "Português" to "Aumentar ", "Deutsch" to "Erhöhen ", "中文（简体）" to "增加", "日本語" to "増やす", "हिन्दी" to "बढ़ाएँ ", "Nederlands" to "Verhoog ", "Русский" to "Увеличить ", "Čeština" to "Zvýšit ", "Српски" to "Povećaj "),
         "Score : " to mapOf("English" to "Score: ", "Español" to "Marcador: ", "Italiano" to "Punteggio: ", "Português" to "Resultado: ", "Deutsch" to "Ergebnis: ", "中文（简体）" to "比分：", "日本語" to "スコア：", "हिन्दी" to "स्कोर: ", "Nederlands" to "Score: ", "Русский" to "Счёт: ", "Čeština" to "Skóre: ", "Српски" to "Rezultat: ")
     )
     var translated = source
