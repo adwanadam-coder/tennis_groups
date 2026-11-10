@@ -48,6 +48,23 @@ private val languages = listOf(
 )
 private val levels = mapOf(1 to "Débutant", 2 to "Intermédiaire", 3 to "Avancé")
 private data class RoundHistory(val number: Int, val matches: List<DoublesMatch>, val waiting: List<Player>, val scores: Map<Int, Pair<String, String>> = emptyMap())
+@Suppress("DEPRECATION")
+private fun vibrateThreeTimes(context: Context) {
+    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+    } else {
+        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    }
+    vibrator?.let {
+        val pattern = longArrayOf(0, 150, 120, 150, 120, 150)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            it.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        } else {
+            it.vibrate(pattern, -1)
+        }
+    }
+}
+
 private data class PlayerRanking(val player: Player, val wins: Int, val pointDifference: Double, val matchesPlayed: Int)
 
 private fun buildIndividualRanking(players: List<Player>, history: List<RoundHistory>): List<PlayerRanking> {
@@ -194,21 +211,7 @@ private fun TennisGroupsApp() {
                 timerEndHandled = true
                 val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75)
                 tone.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
-                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    context.getSystemService(VibratorManager::class.java)?.defaultVibrator
-                } else {
-                    @Suppress("DEPRECATION")
-                    (context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
-                }
-                vibrator?.let {
-                    val pattern = longArrayOf(0, 150, 120, 150, 120, 150)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        it.vibrate(VibrationEffect.createWaveform(pattern, -1))
-                    } else {
-                        @Suppress("DEPRECATION")
-                        it.vibrate(pattern, -1)
-                    }
-                }
+                vibrateThreeTimes(context)
                 delay(250)
                 tone.release()
                 running = false
