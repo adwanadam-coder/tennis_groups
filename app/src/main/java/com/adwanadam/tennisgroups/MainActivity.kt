@@ -184,7 +184,7 @@ private fun TennisGroupsApp() {
                 else -> PlayersPage(
                     players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it }, newLevel, { newLevel = it },
                     courts, { courts = it.coerceIn(1, 20) }, duration, { duration = it.coerceIn(5, 180); remaining = duration * 60 },
-                    { val n = entry.trim(); if (n.isNotEmpty() && players.none { it.name.equals(n, true) }) { players.add(Player(Random.nextLong().toString(), n, if (levelEnabled) newLevel else null)); entry = "" } },
+                    { val n = entry.trim(); if (n.isNotEmpty() && players.none { it.name.equals(n, true) }) { players.add(Player(Random.nextLong().toString(), n, if (levelEnabled) 2 else null)); entry = "" } },
                     { editing = it }, { players.remove(it) }, { generateRound() }, Modifier.padding(padding)
                 )
             }
@@ -203,7 +203,7 @@ private fun TennisGroupsApp() {
 private fun PlayersPage(
     players: List<Player>, entry: String, onEntry: (String) -> Unit,
     tournamentFormat: String, onTournamentFormat: (String) -> Unit,
-    levelsEnabled: Boolean, onLevels: (Boolean) -> Unit, newLevel: Int, onNewLevel: (Int) -> Unit,
+    levelsEnabled: Boolean, onLevels: (Boolean) -> Unit,
     courts: Int, onCourts: (Int) -> Unit, duration: Int, onDuration: (Int) -> Unit,
     onAdd: () -> Unit, onEdit: (Player) -> Unit, onRemove: (Player) -> Unit, onGenerate: () -> Unit, modifier: Modifier
 ) {
@@ -222,7 +222,6 @@ private fun PlayersPage(
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("TOURNOI " + tournamentFormat.uppercase(), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge)
                     Text("Organisez vos rotations simplement.", color = MaterialTheme.colorScheme.onPrimary)
-                    Text(players.size.toString() + " participants", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -275,7 +274,7 @@ private fun PlayersPage(
                     Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.GroupAdd, null)
                         Spacer(Modifier.width(12.dp))
-                        Text("Ajoutez au moins quatre joueurs pour créer votre premier tour.")
+                        Text(if (tournamentFormat == "Simples") "Ajoutez au moins deux joueurs pour créer votre premier tour." else "Ajoutez au moins quatre joueurs pour créer votre premier tour.")
                     }
                 }
             }
