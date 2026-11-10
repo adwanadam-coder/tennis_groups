@@ -201,21 +201,89 @@ private fun HomePage(
         if (roundNumber > 0) {
             item { Text("Rotation " + roundNumber, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
             if (warning) item { Text("Attention : toutes les combinaisons inédites ne sont plus disponibles. Les répétitions éventuelles sont signalées.", color = MaterialTheme.colorScheme.error) }
-            items(matches, key = { it.court }) { match ->
-                Card {
-                    Column(Modifier.padding(14.dp)) {
-                        Text("TERRAIN " + match.court, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            Column { Text("ÉQUIPE A", fontWeight = FontWeight.Bold); match.teamA.forEach { Text(it.name) } }
-                            Text("VS", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterVertically))
-                            Column { Text("ÉQUIPE B", fontWeight = FontWeight.Bold); match.teamB.forEach { Text(it.name) } }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("CHRONOMÈTRE DU TOUR", fontWeight = FontWeight.Bold)
                         }
-                        if (match.repeatedGroup) Text("Groupe déjà rencontré", color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(6.dp))
+                        Text("%02d:%02d".format(secondsLeft / 60, secondsLeft % 60), fontSize = 48.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text("Durée prévue : $matchMinutes minutes", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(onClick = onTimerToggle) {
+                                Icon(if (timerRunning) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text(if (timerRunning) "Pause" else "Démarrer")
+                            }
+                            OutlinedButton(onClick = onTimerReset) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Réinitialiser")
+                            }
+                        }
                     }
                 }
             }
-            if (waiting.isNotEmpty()) item { Text("En attente : " + waiting.joinToString { it.name }) }
-            item { TimerCard(secondsLeft, timerRunning, onTimerToggle, onTimerReset, matchMinutes) }
+            items(matches, key = { it.court }) { match ->
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Terrain " + match.court, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
+                                Text("En jeu", color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            TeamPlayerColumn("ÉQUIPE A", match.teamA, Modifier.weight(1f), levelEnabled)
+                            Text("VS", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                            TeamPlayerColumn("ÉQUIPE B", match.teamB, Modifier.weight(1f), levelEnabled)
+                        }
+                        if (match.repeatedGroup) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Groupe déjà rencontré", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
+            if (waiting.isNotEmpty()) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.HourglassEmpty, contentDescription = null)
+                            Spacer(Modifier.width(10.dp))
+                            Text(waiting.size.toString() + " joueur(s) en attente", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TeamPlayerColumn(title: String, players: List<Player>, modifier: Modifier = Modifier, levelEnabled: Boolean) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        players.forEach { player ->
+            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(player.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    if (levelEnabled && player.level != null) {
+                        Text("Niveau " + player.level, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
         }
     }
 }
