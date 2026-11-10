@@ -31,24 +31,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.Text as MaterialText
-
-private val LocalAppLanguage = staticCompositionLocalOf { "Français" }
-
-@Composable
-private fun Text(
-    text: String,
-    modifier: Modifier = Modifier,
-    color: Color = Color.Unspecified,
-    fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
-    fontWeight: FontWeight? = null,
-    maxLines: Int = Int.MAX_VALUE,
-    softWrap: Boolean = true,
-    style: androidx.compose.ui.text.TextStyle = LocalTextStyle.current
-) {
-    MaterialText(text = translateUiText(text, LocalAppLanguage.current), modifier = modifier, color = color, fontSize = fontSize, fontWeight = fontWeight, maxLines = maxLines, softWrap = softWrap, style = style)
-}
-
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +49,25 @@ import com.adwanadam.tennisgroups.domain.Player
 import com.adwanadam.tennisgroups.domain.RotationEngine
 import kotlinx.coroutines.delay
 import kotlin.random.Random
+import androidx.compose.material3.Text as MaterialText
+
+
+private val LocalAppLanguage = staticCompositionLocalOf { "Français" }
+
+@Composable
+private fun Text(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    fontWeight: FontWeight? = null,
+    maxLines: Int = Int.MAX_VALUE,
+    softWrap: Boolean = true,
+    style: androidx.compose.ui.text.TextStyle = LocalTextStyle.current
+) {
+    MaterialText(text = translateUiText(text, LocalAppLanguage.current), modifier = modifier, color = color, fontSize = fontSize, fontWeight = fontWeight, maxLines = maxLines, softWrap = softWrap, style = style)
+}
+
 
 private data class AppLanguage(val name: String, val flag: String)
 private val languages = listOf(
@@ -1273,8 +1274,8 @@ private fun HistoryPage(
                 var expanded by remember(archive.id) { mutableStateOf(false) }
                 Card(shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Tournoi du ${formatTournamentDate(archive.endedAt)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Début : ${formatTournamentDate(archive.startedAt)}", style = MaterialTheme.typography.bodySmall)
+                        Text("Tournoi du ${formatTournamentDate(archive.endedAt, language)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Début : ${formatTournamentDate(archive.startedAt, language)}", style = MaterialTheme.typography.bodySmall)
                         Text("Fin : ${formatTournamentDate(archive.endedAt)} • ${archive.history.size} tour(s) • ${archive.players.size} joueur(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Classement : " + archive.ranking.take(3).joinToString(" • ") { it.player.name }, style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = { expanded = !expanded }) {
