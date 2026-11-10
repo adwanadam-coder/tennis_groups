@@ -868,6 +868,21 @@ internal fun translateUiText(source: String, language: String): String {
         "Classement : " to mapOf("English" to "Ranking: ", "Español" to "Clasificación: ", "Italiano" to "Classifica: ", "Português" to "Classificação: ", "Deutsch" to "Rangliste: ", "中文（简体）" to "排名：", "日本語" to "ランキング：", "हिन्दी" to "रैंकिंग: ", "Nederlands" to "Ranglijst: ", "Русский" to "Рейтинг: ", "Čeština" to "Pořadí: ", "Српски" to "Rang-lista: "),
         "Score : " to mapOf("English" to "Score: ", "Español" to "Marcador: ", "Italiano" to "Punteggio: ", "Português" to "Resultado: ", "Deutsch" to "Ergebnis: ", "中文（简体）" to "比分：", "日本語" to "スコア：", "हिन्दी" to "स्कोर: ", "Nederlands" to "Score: ", "Русский" to "Счёт: ", "Čeština" to "Skóre: ", "Српски" to "Rezultat: ")
     )
-    dynamicPrefixes.forEach { (prefix, values) -> if (source.startsWith(prefix)) return (values[language] ?: prefix) + source.removePrefix(prefix) }
-    return source
+    var translated = source
+    dynamicPrefixes.forEach { (prefix, values) ->
+        if (translated.startsWith(prefix)) translated = (values[language] ?: prefix) + translated.removePrefix(prefix)
+    }
+    val dynamicWords = mapOf(
+        "tour(s)" to mapOf("English" to "round(s)", "Español" to "ronda(s)", "Italiano" to "turno(i)", "Português" to "ronda(s)", "Deutsch" to "Runde(n)", "中文（简体）" to "轮", "日本語" to "ラウンド", "हिन्दी" to "राउंड", "Nederlands" to "ronde(s)", "Русский" to "раунд(ов)", "Čeština" to "kolo", "Српски" to "runda"),
+        "joueur(s)" to mapOf("English" to "player(s)", "Español" to "jugador(es)", "Italiano" to "giocatore(i)", "Português" to "jogador(es)", "Deutsch" to "Spieler", "中文（简体）" to "名球员", "日本語" to "人", "हिन्दी" to "खिलाड़ी", "Nederlands" to "speler(s)", "Русский" to "игрок(ов)", "Čeština" to "hráč(i)", "Српски" to "igrač(a)"),
+        "joueurs" to mapOf("English" to "players", "Español" to "jugadores", "Italiano" to "giocatori", "Português" to "jogadores", "Deutsch" to "Spieler", "中文（简体）" to "名球员", "日本語" to "人", "हिन्दी" to "खिलाड़ी", "Nederlands" to "spelers", "Русский" to "игроков", "Čeština" to "hráči", "Српски" to "igrači"),
+        "joueur" to mapOf("English" to "player", "Español" to "jugador", "Italiano" to "giocatore", "Português" to "jogador", "Deutsch" to "Spieler", "中文（简体）" to "名球员", "日本語" to "人", "हिन्दी" to "खिलाड़ी", "Nederlands" to "speler", "Русский" to "игрок", "Čeština" to "hráč", "Српски" to "igrač"),
+        "terrains" to mapOf("English" to "courts", "Español" to "pistas", "Italiano" to "campi", "Português" to "campos", "Deutsch" to "Plätze", "中文（简体）" to "个球场", "日本語" to "コート", "हिन्दी" to "कोर्ट", "Nederlands" to "banen", "Русский" to "корта", "Čeština" to "kurty", "Српски" to "tereni"),
+        "terrain" to mapOf("English" to "court", "Español" to "pista", "Italiano" to "campo", "Português" to "campo", "Deutsch" to "Platz", "中文（简体）" to "球场", "日本語" to "コート", "हिन्दी" to "कोर्ट", "Nederlands" to "baan", "Русский" to "корт", "Čeština" to "kurt", "Српски" to "teren")
+    )
+    dynamicWords.forEach { (from, values) ->
+        val translatedWord = values[language]
+        if (translatedWord != null) translated = translated.replace(from, translatedWord)
+    }
+    return translated
 }
