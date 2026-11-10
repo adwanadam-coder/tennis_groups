@@ -858,7 +858,14 @@ internal fun translateUiText(source: String, language: String): String {
         arrayOf("Score non renseigné", "Score not entered", "Resultado no indicado", "Punteggio non inserito", "Resultado não indicado", "Ergebnis nicht eingetragen", "未填写比分", "スコア未入力", "स्कोर दर्ज नहीं किया गया", "Score niet ingevuld", "Счёт не указан", "Skóre nebylo zadáno", "Rezultat nije unet")
     )
     val accessibility = accessibilityRows.firstOrNull { it[0] == source }?.get(when (language) { "English" -> 1; "Español" -> 2; "Italiano" -> 3; "Português" -> 4; "Deutsch" -> 5; "中文（简体）" -> 6; "日本語" -> 7; "हिन्दी" -> 8; "Nederlands" -> 9; "Русский" -> 10; "Čeština" -> 11; "Српски" -> 12; else -> 0 })
-    val exact = translations[language]?.get(source) ?: supplemental ?: extended ?: finalTranslation ?: accessibility
+    val teamLabelRows = listOf(
+        arrayOf("JOUEUR A", "PLAYER A", "JUGADOR A", "GIOCATORE A", "JOGADOR A", "SPIELER A", "球员 A", "プレーヤー A", "खिलाड़ी A", "SPELER A", "ИГРОК A", "HRÁČ A", "IGRAČ A"),
+        arrayOf("JOUEUR B", "PLAYER B", "JUGADOR B", "GIOCATORE B", "JOGADOR B", "SPIELER B", "球员 B", "プレーヤー B", "खिलाड़ी B", "SPELER B", "ИГРОК B", "HRÁČ B", "IGRAČ B"),
+        arrayOf("ÉQUIPE A", "TEAM A", "EQUIPO A", "SQUADRA A", "EQUIPA A", "TEAM A", "队伍 A", "チーム A", "टीम A", "TEAM A", "КОМАНДА A", "TÝM A", "TIM A"),
+        arrayOf("ÉQUIPE B", "TEAM B", "EQUIPO B", "SQUADRA B", "EQUIPA B", "TEAM B", "队伍 B", "チーム B", "टीम B", "TEAM B", "КОМАНДА B", "TÝM B", "TIM B")
+    )
+    val teamLabel = teamLabelRows.firstOrNull { it[0] == source }?.get(when (language) { "English" -> 1; "Español" -> 2; "Italiano" -> 3; "Português" -> 4; "Deutsch" -> 5; "中文（简体）" -> 6; "日本語" -> 7; "हिन्दी" -> 8; "Nederlands" -> 9; "Русский" -> 10; "Čeština" -> 11; "Српски" -> 12; else -> 0 })
+    val exact = translations[language]?.get(source) ?: supplemental ?: extended ?: finalTranslation ?: accessibility ?: teamLabel
     if (exact != null) return exact
     val dynamicPrefixes = mapOf(
         "Terrain " to mapOf("English" to "Court ", "Español" to "Pista ", "Italiano" to "Campo ", "Português" to "Campo ", "Deutsch" to "Platz ", "中文（简体）" to "球场 ", "日本語" to "コート ", "हिन्दी" to "कोर्ट ", "Nederlands" to "Baan ", "Русский" to "Корт ", "Čeština" to "Kurt ", "Српски" to "Терен "),
@@ -890,7 +897,9 @@ internal fun translateUiText(source: String, language: String): String {
         "joueurs" to mapOf("English" to "players", "Español" to "jugadores", "Italiano" to "giocatori", "Português" to "jogadores", "Deutsch" to "Spieler", "中文（简体）" to "名球员", "日本語" to "人", "हिन्दी" to "खिलाड़ी", "Nederlands" to "spelers", "Русский" to "игроков", "Čeština" to "hráči", "Српски" to "igrači"),
         "joueur" to mapOf("English" to "player", "Español" to "jugador", "Italiano" to "giocatore", "Português" to "jogador", "Deutsch" to "Spieler", "中文（简体）" to "名球员", "日本語" to "人", "हिन्दी" to "खिलाड़ी", "Nederlands" to "speler", "Русский" to "игрок", "Čeština" to "hráč", "Српски" to "igrač"),
         "terrains" to mapOf("English" to "courts", "Español" to "pistas", "Italiano" to "campi", "Português" to "campos", "Deutsch" to "Plätze", "中文（简体）" to "个球场", "日本語" to "コート", "हिन्दी" to "कोर्ट", "Nederlands" to "banen", "Русский" to "корта", "Čeština" to "kurty", "Српски" to "tereni"),
-        "terrain" to mapOf("English" to "court", "Español" to "pista", "Italiano" to "campo", "Português" to "campo", "Deutsch" to "Platz", "中文（简体）" to "球场", "日本語" to "コート", "हिन्दी" to "कोर्ट", "Nederlands" to "baan", "Русский" to "корт", "Čeština" to "kurt", "Српски" to "teren")
+        "terrain" to mapOf("English" to "court", "Español" to "pista", "Italiano" to "campo", "Português" to "campo", "Deutsch" to "Platz", "中文（简体）" to "球场", "日本語" to "コート", "हिन्दी" to "कोर्ट", "Nederlands" to "baan", "Русский" to "корт", "Čeština" to "kurt", "Српски" to "teren",
+        "minutes" to mapOf("English" to "minutes", "Español" to "minutos", "Italiano" to "minuti", "Português" to "minutos", "Deutsch" to "Minuten", "中文（简体）" to "分钟", "日本語" to "分", "हिन्दी" to "मिनट", "Nederlands" to "minuten", "Русский" to "минут", "Čeština" to "minuty", "Српски" to "minuta"),
+        "minute" to mapOf("English" to "minute", "Español" to "minuto", "Italiano" to "minuto", "Português" to "minuto", "Deutsch" to "Minute", "中文（简体）" to "分钟", "日本語" to "分", "हिन्दी" to "मिनट", "Nederlands" to "minuut", "Русский" to "минута", "Čeština" to "minuta", "Српски" to "minut")
     )
     dynamicWords.forEach { (from, values) ->
         val translatedWord = values[language]
