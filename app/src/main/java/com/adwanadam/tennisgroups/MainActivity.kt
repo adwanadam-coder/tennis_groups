@@ -2,6 +2,15 @@ package com.adwanadam.tennisgroups
 
 import android.os.Bundle
 import android.content.Context
+import android.content.Intent
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.pdf.PdfDocument
+import androidx.core.content.FileProvider
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
@@ -48,6 +57,17 @@ private val languages = listOf(
 )
 private val levels = mapOf(1 to "Débutant", 2 to "Intermédiaire", 3 to "Avancé")
 private data class RoundHistory(val number: Int, val matches: List<DoublesMatch>, val waiting: List<Player>, val scores: Map<Int, Pair<String, String>> = emptyMap())
+
+private data class TournamentArchive(
+    val id: Long,
+    val players: List<Player>,
+    val history: List<RoundHistory>,
+    val ranking: List<PlayerRanking>,
+    val startedAt: Long,
+    val endedAt: Long,
+    val format: String,
+    val levelsEnabled: Boolean
+)
 @Suppress("DEPRECATION")
 private fun vibrateThreeTimes(context: Context) {
     val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -97,6 +117,115 @@ private fun buildIndividualRanking(players: List<Player>, history: List<RoundHis
         .thenByDescending { it.pointDifference }
         .thenBy { it.player.name.lowercase() })
 }
+private fun formatTournamentDate(timestamp: Long): String =
+    SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
+
+private fun csvCell(value: String): String = "\"" + value.replace("\"", "\"\"") + "\""
+
+private fun tournamentCsv(archive: TournamentArchive): String = buildString {
+    appendLine("BILAN DU TOURNOI")
+    appendLine("Format,${csvCell(archive.format)}")
+    appendLine("Début,${csvCell(formatTournamentDate(archive.startedAt))}")
+    appendLine("Fin,${csvCell(formatTournamentDate(archive.endedAt))}")
+    appendLine()
+    appendLine("CLASSEMENT FINAL")
+    appendLine("Rang,Joueur,Victoires,Différence de points,Matchs joués")
+    archive.ranking.forEachIndexed { index, item ->
+        appendLine("${index + 1},${csvCell(item.player.name)},${item.wins},${item.pointDifference.roundToInt()},${item.matchesPlayed}")
+    }
+    appendLine()
+    appendLine("HISTORIQUE DES MATCHS")
+    appendLine("Tour,Terrain,Équipe/Joueur A,Score A,Équipe/Joueur B,Score B,Joueurs en attente")
+    archive.history.forEach { round ->
+        round.matches.forEach { match ->
+            val score = round.scores[match.court]
+            val waiting = round.waiting.joinToString(" / ") { it.name }
+            appendLine("${round.number},${match.court},${csvCell(match.teamA.joinToString(" + ") { it.name })},${csvCell(score?.first.orEmpty())},${csvCell(match.teamB.joinToString(" + ") { it.name })},${csvCell(score?.second.orEmpty())},${csvCell(waiting)}")
+        }
+    }
+}
+
+private fun shareTournamentReport(context: Context, archive: TournamentArchive, format: String) {
+    val reportsDir = File(context.cacheDir, "tournament_reports").apply { mkdirs() }
+    val stamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date(archive.endedAt))
+    val file = if (format == "CSV") File(reportsDir, "tournoi_${stamp}.csv") else File(reportsDir, "tournoi_${stamp}.pdf")
+    if (format == "CSV") {
+        file.writeText("\uFEFF" + tournamentCsv(archive), Charsets.UTF_8)
+    } else {
+        val document = PdfDocument()
+        val pageWidth = 595
+        val pageHeight = 842
+        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 11f; color = android.graphics.Color.BLACK }
+        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 18f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); color = android.graphics.Color.BLACK }
+        val sectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 14f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); color = android.graphics.Color.BLACK }
+        val lines = mutableListOf<Pair<String, Int>>()
+        lines.add("BILAN DU TOURNOI" to 2)
+        lines.add("Format : ${archive.format}" to 0)
+        lines.add("Début : ${formatTournamentDate(archive.startedAt)}" to 0)
+        lines.add("Fin : ${formatTournamentDate(archive.endedAt)}" to 0)
+        lines.add("" to 0)
+        lines.add("CLASSEMENT FINAL" to 1)
+        archive.ranking.forEachIndexed { index, item ->
+            lines.add("${index + 1}. ${item.player.name} — ${item.wins} victoire(s) — ${if (item.pointDifference > 0) "+" else ""}${item.pointDifference.roundToInt()} pts — ${item.matchesPlayed} match(s)" to 0)
+        }
+        lines.add("" to 0)
+        lines.add("HISTORIQUE DES MATCHS" to 1)
+        archive.history.forEach { round ->
+            lines.add("TOUR ${round.number}" to 1)
+            round.matches.forEach { match ->
+                val score = round.scores[match.court]
+                val scoreText = if (score == null) "Score non renseigné" else "${score.first.ifBlank { "–" }} - ${score.second.ifBlank { "–" }}"
+                lines.add("Terrain ${match.court} : ${match.teamA.joinToString(" + ") { it.name }} / ${match.teamB.joinToString(" + ") { it.name }} ($scoreText)" to 0)
+            }
+            if (round.waiting.isNotEmpty()) lines.add("En attente : ${round.waiting.joinToString(", ") { it.name }}" to 0)
+        }
+        var pageNumber = 1
+        var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+        var canvas = page.canvas
+        var y = 48f
+        lines.forEach { (line, kind) ->
+            val chosenPaint = when (kind) { 2 -> titlePaint; 1 -> sectionPaint; else -> bodyPaint }
+            if (y > pageHeight - 48f) {
+                document.finishPage(page)
+                pageNumber += 1
+                page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                canvas = page.canvas
+                y = 48f
+            }
+            if (line.isNotEmpty()) {
+                val maxWidth = pageWidth - 72f
+                var remainingText = line
+                while (remainingText.isNotEmpty()) {
+                    var count = remainingText.length
+                    while (count > 1 && chosenPaint.measureText(remainingText.substring(0, count)) > maxWidth) count--
+                    canvas.drawText(remainingText.substring(0, count), 36f, y, chosenPaint)
+                    remainingText = remainingText.substring(count)
+                    y += if (kind == 2) 30f else if (kind == 1) 23f else 18f
+                    if (y > pageHeight - 48f && remainingText.isNotEmpty()) {
+                        document.finishPage(page)
+                        pageNumber += 1
+                        page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                        canvas = page.canvas
+                        y = 48f
+                    }
+                }
+            } else y += 10f
+        }
+        document.finishPage(page)
+        file.outputStream().use { document.writeTo(it) }
+        document.close()
+    }
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val mimeType = if (format == "CSV") "text/csv" else "application/pdf"
+    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+        type = mimeType
+        putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_SUBJECT, "Bilan du tournoi de tennis")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(sendIntent, "Partager le bilan du tournoi"))
+}
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -135,10 +264,15 @@ private fun TennisGroupsApp() {
     var timerEndHandled by remember { mutableStateOf(false) }
     var finishDialogOpen by remember { mutableStateOf(false) }
     var tournamentFinished by remember { mutableStateOf(false) }
+    val tournamentArchives = remember { mutableStateListOf<TournamentArchive>() }
+    var tournamentStartedAt by remember { mutableLongStateOf(0L) }
+    var tournamentResetDialogOpen by remember { mutableStateOf(false) }
+    var archiveToDelete by remember { mutableStateOf<TournamentArchive?>(null) }
     var editing by remember { mutableStateOf<Player?>(null) }
     var tournamentFormat by remember { mutableStateOf("Doubles") }
 
     fun generateRound() {
+        if (round == 0) tournamentStartedAt = System.currentTimeMillis()
         val result = RotationEngine().generate(players.toList(), courts, levelEnabled, previousGroups.toSet(), previousPartners.toSet(), tournamentFormat == "Simples")
         matches = result.matches
         waiting = result.waiting
@@ -210,9 +344,12 @@ private fun TennisGroupsApp() {
             if (remaining == 0 && !timerEndHandled) {
                 timerEndHandled = true
                 val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75)
-                tone.startTone(ToneGenerator.TONE_PROP_BEEP, 180)
+                repeat(3) { beepIndex ->
+                    tone.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+                    if (beepIndex < 2) delay(300)
+                }
                 vibrateThreeTimes(context)
-                delay(250)
+                delay(180)
                 tone.release()
                 running = false
                 if (scoreEntryEnabled && matches.isNotEmpty() && !scoreDialogShown) {
@@ -232,11 +369,73 @@ private fun TennisGroupsApp() {
                         finishDialogOpen = false
                         running = false
                         scoreDialogOpen = false
+                        val endedAt = System.currentTimeMillis()
+                        val startedAt = if (tournamentStartedAt > 0L) tournamentStartedAt else endedAt
+                        val snapshotPlayers = players.toList()
+                        val snapshotHistory = history.toList()
+                        tournamentArchives.add(
+                            TournamentArchive(
+                                id = endedAt,
+                                players = snapshotPlayers,
+                                history = snapshotHistory,
+                                ranking = buildIndividualRanking(snapshotPlayers, snapshotHistory),
+                                startedAt = startedAt,
+                                endedAt = endedAt,
+                                format = tournamentFormat,
+                                levelsEnabled = levelEnabled
+                            )
+                        )
                         tournamentFinished = true
                         page = "history"
                     }) { Text("Terminer") }
                 },
                 dismissButton = { TextButton(onClick = { finishDialogOpen = false }) { Text("Annuler") } }
+            )
+        }
+
+        if (tournamentResetDialogOpen) {
+            AlertDialog(
+                onDismissRequest = { tournamentResetDialogOpen = false },
+                title = { Text("Nouveau tournoi ?", fontWeight = FontWeight.Bold) },
+                text = { Text("Le classement et l'historique du tournoi terminé resteront archivés. Les tours et les résultats actifs seront remis à zéro, en conservant les participants et les paramètres.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        tournamentResetDialogOpen = false
+                        round = 0
+                        matches = emptyList()
+                        waiting = emptyList()
+                        warning = false
+                        history.clear()
+                        previousGroups.clear()
+                        previousPartners.clear()
+                        players.indices.forEach { index -> players[index] = players[index].copy(matchesPlayed = 0) }
+                        scoreInputs.clear()
+                        remaining = duration * 60
+                        running = false
+                        timerEndHandled = false
+                        scoreDialogOpen = false
+                        scoreDialogShown = false
+                        tournamentFinished = false
+                        tournamentStartedAt = 0L
+                        page = "matches"
+                    }) { Text("Nouveau tournoi") }
+                },
+                dismissButton = { TextButton(onClick = { tournamentResetDialogOpen = false }) { Text("Plus tard") } }
+            )
+        }
+
+        archiveToDelete?.let { archive ->
+            AlertDialog(
+                onDismissRequest = { archiveToDelete = null },
+                title = { Text("Supprimer cette archive ?", fontWeight = FontWeight.Bold) },
+                text = { Text("Le classement et l'historique de ce tournoi seront supprimés définitivement de l'application.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        tournamentArchives.removeAll { it.id == archive.id }
+                        archiveToDelete = null
+                    }) { Text("Supprimer") }
+                },
+                dismissButton = { TextButton(onClick = { archiveToDelete = null }) { Text("Annuler") } }
             )
         }
 
@@ -276,7 +475,7 @@ private fun TennisGroupsApp() {
                             IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.Menu, contentDescription = "Ouvrir le menu") }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(text = { Text("Joueurs") }, leadingIcon = { Icon(Icons.Default.People, null) }, onClick = { page = "players"; menuOpen = false })
-                                DropdownMenuItem(text = { Text("Matchs") }, leadingIcon = { Icon(Icons.Default.SportsTennis, null) }, onClick = { page = "matches"; menuOpen = false })
+                                DropdownMenuItem(text = { Text("Matchs") }, leadingIcon = { Icon(Icons.Default.SportsTennis, null) }, onClick = { if (tournamentFinished) tournamentResetDialogOpen = true else page = "matches"; menuOpen = false })
                                 DropdownMenuItem(text = { Text("Historique") }, leadingIcon = { Icon(Icons.Default.History, null) }, onClick = { page = "history"; menuOpen = false })
                                 HorizontalDivider()
                                 DropdownMenuItem(text = { Text("Payer moi un café") }, leadingIcon = { Icon(Icons.Default.Coffee, null) }, onClick = { menuOpen = false; uriHandler.openUri("https://ko-fi.com/ada7875") })
@@ -295,7 +494,7 @@ private fun TennisGroupsApp() {
             bottomBar = {
                 NavigationBar(windowInsets = WindowInsets.navigationBars) {
                     NavigationBarItem(selected = page == "players" || page == "settings", onClick = { page = "players" }, icon = { Icon(Icons.Default.People, null) }, label = { Text("Joueurs") })
-                    NavigationBarItem(selected = page == "matches", onClick = { page = "matches" }, icon = { Icon(Icons.Default.SportsTennis, null) }, label = { Text("Matchs") })
+                    NavigationBarItem(selected = page == "matches", onClick = { if (tournamentFinished) tournamentResetDialogOpen = true else page = "matches" }, icon = { Icon(Icons.Default.SportsTennis, null) }, label = { Text("Matchs") })
                     NavigationBarItem(selected = page == "history", onClick = { page = "history" }, icon = { Icon(Icons.Default.History, null) }, label = { Text("Historique") })
                 }
             }
@@ -310,7 +509,13 @@ private fun TennisGroupsApp() {
                         scoreDialogShown = false
                     }, { if (players.size >= (if (tournamentFormat == "Simples") 2 else 4)) generateRound() },
                     { finishDialogOpen = true }, scoreInputs.toMap(), Modifier.padding(padding))
-                "history" -> HistoryPage(history.toList(), players.toList(), levelEnabled, tournamentFinished, Modifier.padding(padding))
+                "history" -> HistoryPage(
+                    history.toList(), players.toList(), levelEnabled, tournamentFinished,
+                    tournamentArchives.toList(),
+                    onExport = { archive, format -> shareTournamentReport(context, archive, format) },
+                    onDeleteArchive = { archiveToDelete = it },
+                    modifier = Modifier.padding(padding)
+                )
                 "about" -> AboutPage(Modifier.padding(padding))
                 else -> PlayersPage(
                     players, entry, { entry = it }, tournamentFormat, { tournamentFormat = it }, levelEnabled, { levelEnabled = it },
@@ -552,7 +757,12 @@ private fun MatchesPage(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (round == 0) "Matchs" else "Tour " + round, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 if (round > 0) {
-                    TextButton(onClick = onFinishTournament, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)) {
+                    Button(
+                        onClick = onFinishTournament,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
                         Text("Fin du tournoi", fontSize = MaterialTheme.typography.labelMedium.fontSize, maxLines = 1, softWrap = false)
                     }
                 }
@@ -727,7 +937,16 @@ private fun SettingsPage(levelsEnabled: Boolean, onLevels: (Boolean) -> Unit, co
 }
 
 @Composable
-private fun HistoryPage(history: List<RoundHistory>, players: List<Player>, levelsEnabled: Boolean, tournamentFinished: Boolean, modifier: Modifier) {
+private fun HistoryPage(
+    history: List<RoundHistory>,
+    players: List<Player>,
+    levelsEnabled: Boolean,
+    tournamentFinished: Boolean,
+    archives: List<TournamentArchive>,
+    onExport: (TournamentArchive, String) -> Unit,
+    onDeleteArchive: (TournamentArchive) -> Unit,
+    modifier: Modifier
+) {
     val ranking = remember(history, players) { buildIndividualRanking(players, history) }
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -747,11 +966,26 @@ private fun HistoryPage(history: List<RoundHistory>, players: List<Player>, leve
                                 Text("${item.wins} V  •  ${if (item.pointDifference > 0) "+" else ""}${item.pointDifference.roundToInt()} pts", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
                             }
                         }
+                        val currentArchive = archives.maxByOrNull { it.endedAt }
+                        if (currentArchive != null) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { onExport(currentArchive, "PDF") }, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.PictureAsPdf, null)
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("Exporter PDF")
+                                }
+                                OutlinedButton(onClick = { onExport(currentArchive, "CSV") }, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.TableChart, null)
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("Exporter CSV")
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
-        if (history.isEmpty()) {
+        if (history.isEmpty() && !tournamentFinished) {
             item {
                 Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -782,6 +1016,37 @@ private fun HistoryPage(history: List<RoundHistory>, players: List<Player>, leve
                             }
                         }
                         if (item.waiting.isNotEmpty()) Text(quantityLabel(item.waiting.size, "joueur") + " en attente : " + item.waiting.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        if (archives.isNotEmpty()) {
+            item {
+                Text("Tournois précédents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Les bilans archivés restent disponibles après la remise à zéro.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            items(archives.sortedByDescending { it.endedAt }, key = { it.id }) { archive ->
+                Card(shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Tournoi du ${formatTournamentDate(archive.endedAt)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Début : ${formatTournamentDate(archive.startedAt)}", style = MaterialTheme.typography.bodySmall)
+                        Text("Fin : ${formatTournamentDate(archive.endedAt)} • ${archive.history.size} tour(s) • ${archive.players.size} joueur(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Classement : " + archive.ranking.take(3).joinToString(" • ") { it.player.name }, style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { onExport(archive, "PDF") }, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.PictureAsPdf, null)
+                                Spacer(Modifier.width(5.dp))
+                                Text("PDF")
+                            }
+                            OutlinedButton(onClick = { onExport(archive, "CSV") }, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.TableChart, null)
+                                Spacer(Modifier.width(5.dp))
+                                Text("CSV")
+                            }
+                            IconButton(onClick = { onDeleteArchive(archive) }) {
+                                Icon(Icons.Default.DeleteOutline, contentDescription = "Supprimer l'archive", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
                     }
                 }
             }
